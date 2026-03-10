@@ -1,0 +1,8 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <FontFamily x:Key="FontFamilyDefault">Microsoft YaHei UI</FontFamily>
+    <sys:Double x:Key="FontSizeCaption" xmlns:sys="clr-namespace:System;assembly=mscorlib">12</sys:Double>
+    <sys:Double x:Key="FontSizeBody" xmlns:sys="clr-namespace:System;assembly=mscorlib">13</sys:Double>
+    <sys:Double x:Key="FontSizeSectionTitle" xmlns:sys="clr-namespace:System;assembly=mscorlib">17</sys:Double>
+    <sys:Double x:Key="FontSizeMetric" xmlns:sys="clr-namespace:System;assembly=mscorlib">28</sys:Double>
+</ResourceDictionary>

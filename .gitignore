@@ -42,6 +42,9 @@ Thumbs.db
 # App local config secrets
 appsettings.Development.json
 appsettings.Local.json
+appsettings.local.json
+**/appsettings.Local.json
+**/appsettings.local.json
 secrets.json
 
 # Temporary files

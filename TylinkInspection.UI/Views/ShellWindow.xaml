@@ -1,0 +1,102 @@
+<Window x:Class="TylinkInspection.UI.Views.ShellWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Title="天翼视联 AI 智能巡检系统"
+        Width="1680"
+        Height="980"
+        MinWidth="1380"
+        MinHeight="860"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="8"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid Background="{DynamicResource WindowBackgroundBrush}">
+        <Border Margin="{StaticResource ShellOuterMargin}"
+                Background="{DynamicResource ShellBackgroundBrush}"
+                BorderBrush="{DynamicResource ShellBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource ShellCornerRadius}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0"
+                        Style="{StaticResource TopBarBorderStyle}"
+                        MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="320" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="154" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock FontSize="28" FontWeight="Bold" Text="天翼视联 AI 智能巡检系统" />
+                            <TextBlock Margin="0,4,0,0"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       Text="Tylink Inspection Console" />
+                        </StackPanel>
+
+                        <ItemsControl Grid.Column="1"
+                                      Margin="24,0"
+                                      HorizontalAlignment="Center"
+                                      ItemsSource="{Binding NavigationItems}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Title}"
+                                            Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource NavigationButtonStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="Tag" Value="Selected" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Button Click="Minimize_OnClick" Content="_" FontSize="16" Style="{StaticResource WindowControlButtonStyle}" />
+                            <Button Click="ToggleWindowState_OnClick" Content="□" FontSize="12" Style="{StaticResource WindowControlButtonStyle}" />
+                            <Button Click="Close_OnClick" Content="✕" FontSize="12" Style="{StaticResource WindowControlButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Margin="{StaticResource ShellContentMargin}"
+                        Background="Transparent">
+                    <ContentControl Content="{Binding CurrentPageViewModel}" />
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

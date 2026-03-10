@@ -1,0 +1,131 @@
+<UserControl x:Class="TylinkInspection.UI.Views.Pages.Shared.ModuleDashboardPageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+             mc:Ignorable="d">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,4">
+            <Border Style="{StaticResource PanelCardStyle}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Left">
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding PageTitle}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   Text="{Binding PageSubtitle}" />
+                    </StackPanel>
+                    <Border DockPanel.Dock="Right"
+                            Style="{StaticResource MiniBadgeStyle}"
+                            Background="{DynamicResource FilterBadgeBackgroundBrush}"
+                            BorderBrush="{Binding StatusBadgeAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                            HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding StatusBadgeText}" />
+                    </Border>
+                </DockPanel>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding SummaryCards}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <primitives:UniformGrid Columns="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,16,16"
+                                Padding="16"
+                                Background="{DynamicResource MetricTileBackgroundBrush}"
+                                BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource InnerCardCornerRadius}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding Label}" />
+                                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                    <TextBlock FontSize="{StaticResource FontSizeMetric}" FontWeight="Bold" Text="{Binding Value}" />
+                                    <TextBlock Margin="6,10,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Unit}" />
+                                </StackPanel>
+                                <TextBlock Margin="0,10,0,0"
+                                           Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                           Text="{Binding DeltaText}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.05*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="0.95*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource PanelCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="示意卡片" />
+                        <TextBlock Margin="0,8,0,18"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   Text="用于承载模块摘要、配置快照与下一轮真实业务组件替换入口。" />
+                        <ItemsControl ItemsSource="{Binding HighlightCards}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,14"
+                                            Padding="16"
+                                            Background="{DynamicResource AssistantPanelBackgroundBrush}"
+                                            BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource CardCornerRadius}">
+                                        <StackPanel>
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding Title}" />
+                                            <TextBlock Margin="0,10,0,0" FontSize="20" FontWeight="SemiBold" Text="{Binding Headline}" />
+                                            <TextBlock Margin="0,10,0,0"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       Text="{Binding Description}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource PanelCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="最近动态" />
+                        <TextBlock Margin="0,8,0,18"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   Text="当前为本地假数据流，后续可替换成真实记录、日志与审计事件。" />
+                        <ItemsControl ItemsSource="{Binding ActivityItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,12"
+                                            Padding="14"
+                                            Background="{DynamicResource AlertItemBackgroundBrush}"
+                                            BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <TextBlock FontSize="14" FontWeight="SemiBold" Text="{Binding Title}" />
+                                                <TextBlock DockPanel.Dock="Right"
+                                                           Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                                           Text="{Binding MetaText}" />
+                                            </DockPanel>
+                                            <TextBlock Margin="0,8,0,0"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       Text="{Binding Description}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
