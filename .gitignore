@@ -1,0 +1,50 @@
+# Build
+bin/
+obj/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+
+# Logs
+*.log
+
+# NuGet
+packages/
+*.nupkg
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Publish / artifacts
+artifacts/
+publish/
+dist/
+
+# Local database / cache
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App local config secrets
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
