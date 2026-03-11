@@ -14,6 +14,18 @@ public interface IRecheckSchedulerService
 
     RecheckQueueOverview GetOverview();
 
+    RecheckRuleCatalog GetRuleCatalog();
+
+    RecheckScheduleRule GetScheduleRule();
+
+    RecheckScheduleRule SaveScheduleRule(RecheckScheduleRule rule, string operatorName);
+
+    RecheckScheduleRule RestoreDefaultScheduleRule(string operatorName);
+
+    RecheckScheduleRule SaveFaultTypeRule(string faultType, RecheckScheduleRule rule, string operatorName);
+
+    void RemoveFaultTypeRule(string faultType, string operatorName);
+
     RecheckTaskRecord EnsureTask(
         FaultClosureRecord sourceRecord,
         string operatorName,
@@ -22,4 +34,8 @@ public interface IRecheckSchedulerService
     RecheckTaskRecord TriggerTaskNow(string taskId, string operatorName);
 
     RecheckTaskRecord SetTaskEnabled(string taskId, bool isEnabled, string operatorName);
+
+    RecheckTaskRecord SaveTaskRuleOverride(string taskId, RecheckScheduleRule rule, string operatorName);
+
+    RecheckTaskRecord ClearTaskRuleOverride(string taskId, string operatorName);
 }

@@ -7,6 +7,7 @@ namespace TylinkInspection.Infrastructure.Storage;
 
 public sealed class JsonRecheckTaskStore : IRecheckTaskStore
 {
+    private readonly string _rulePath;
     private readonly string _taskPath;
     private readonly string _executionPath;
     private readonly string _latestResultPath;
@@ -20,6 +21,7 @@ public sealed class JsonRecheckTaskStore : IRecheckTaskStore
     };
 
     public JsonRecheckTaskStore(
+        string? rulePath = null,
         string? taskPath = null,
         string? executionPath = null,
         string? latestResultPath = null)
@@ -28,9 +30,55 @@ public sealed class JsonRecheckTaskStore : IRecheckTaskStore
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "TylinkInspection");
 
+        _rulePath = rulePath ?? Path.Combine(baseDirectory, "recheck-rule.json");
         _taskPath = taskPath ?? Path.Combine(baseDirectory, "recheck-tasks.json");
         _executionPath = executionPath ?? Path.Combine(baseDirectory, "recheck-executions.json");
         _latestResultPath = latestResultPath ?? Path.Combine(baseDirectory, "recheck-latest-results.json");
+    }
+
+    public RecheckRuleCatalog LoadRuleCatalog()
+    {
+        if (!File.Exists(_rulePath))
+        {
+            return RecheckRuleCatalog.CreateDefault();
+        }
+
+        var json = File.ReadAllText(_rulePath);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return RecheckRuleCatalog.CreateDefault();
+        }
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        if (root.ValueKind == JsonValueKind.Object &&
+            root.TryGetProperty("globalDefaultRule", out _))
+        {
+            var catalog = JsonSerializer.Deserialize<RecheckRuleCatalogStorageModel>(json, _serializerOptions);
+            return new RecheckRuleCatalog
+            {
+                GlobalDefaultRule = catalog?.GlobalDefaultRule ?? RecheckScheduleRule.CreateDefault(),
+                FaultTypeRules = catalog?.FaultTypeRules?.ToList() ?? new List<RecheckScheduleRule>()
+            }.Normalize();
+        }
+
+        var legacyRule = JsonSerializer.Deserialize<RecheckScheduleRule>(json, _serializerOptions);
+        return new RecheckRuleCatalog
+        {
+            GlobalDefaultRule = legacyRule ?? RecheckScheduleRule.CreateDefault(),
+            FaultTypeRules = Array.Empty<RecheckScheduleRule>()
+        }.Normalize();
+    }
+
+    public void SaveRuleCatalog(RecheckRuleCatalog catalog)
+    {
+        var normalized = catalog.Normalize();
+        SaveFile(_rulePath, new RecheckRuleCatalogStorageModel
+        {
+            GlobalDefaultRule = normalized.GlobalDefaultRule,
+            FaultTypeRules = normalized.FaultTypeRules.ToList()
+        });
     }
 
     public IReadOnlyList<RecheckTaskRecord> LoadTasks()
@@ -84,5 +132,12 @@ public sealed class JsonRecheckTaskStore : IRecheckTaskStore
 
         var json = JsonSerializer.Serialize(value, _serializerOptions);
         File.WriteAllText(path, json);
+    }
+
+    private sealed class RecheckRuleCatalogStorageModel
+    {
+        public RecheckScheduleRule GlobalDefaultRule { get; init; } = RecheckScheduleRule.CreateDefault();
+
+        public List<RecheckScheduleRule> FaultTypeRules { get; init; } = [];
     }
 }

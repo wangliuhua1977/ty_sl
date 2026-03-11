@@ -10,6 +10,8 @@ public sealed record class RecheckTaskRecord
 
     public string DeviceName { get; init; } = string.Empty;
 
+    public string FaultType { get; init; } = string.Empty;
+
     public string SourceFaultClosureId { get; init; } = string.Empty;
 
     public string CurrentStatus { get; init; } = RecheckTaskStatuses.Pending;
@@ -25,6 +27,14 @@ public sealed record class RecheckTaskRecord
     public int MaxRetryCount { get; init; } = 3;
 
     public bool IsEnabled { get; init; } = true;
+
+    public bool HasManualRuleOverride { get; init; }
+
+    public string EffectiveRuleSource { get; init; } = RecheckRuleHitSources.GlobalDefault;
+
+    public string EffectiveRuleScopeType { get; init; } = RecheckRuleScopeTypes.GlobalDefault;
+
+    public string EffectiveRuleScopeKey { get; init; } = string.Empty;
 
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.Now;
 
@@ -61,6 +71,9 @@ public sealed record class RecheckTaskRecord
     public string ScheduleTypeText => RecheckTextMapper.ToScheduleTypeText(ScheduleType);
 
     [JsonIgnore]
+    public string EffectiveRuleSourceText => RecheckTextMapper.ToRuleHitSourceText(EffectiveRuleSource);
+
+    [JsonIgnore]
     public string NextRunAtText => NextRunAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "--";
 
     [JsonIgnore]
@@ -76,6 +89,11 @@ public sealed record class RecheckTaskRecord
     public string LastExecutionSummaryText => string.IsNullOrWhiteSpace(LastExecutionSummary)
         ? "暂无最近执行结果"
         : LastExecutionSummary.Trim();
+
+    [JsonIgnore]
+    public string RuleOriginSummaryText => string.IsNullOrWhiteSpace(EffectiveRuleScopeKey)
+        ? EffectiveRuleSourceText
+        : $"{EffectiveRuleSourceText} / {EffectiveRuleScopeKey}";
 
     [JsonIgnore]
     public string AccentResourceKey => CurrentStatus switch

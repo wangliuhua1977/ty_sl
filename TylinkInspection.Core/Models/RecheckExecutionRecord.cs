@@ -14,6 +14,8 @@ public sealed class RecheckExecutionRecord
 
     public string DeviceName { get; init; } = string.Empty;
 
+    public string FaultType { get; init; } = string.Empty;
+
     public string TriggerType { get; init; } = RecheckExecutionTriggerTypes.Scheduled;
 
     public DateTimeOffset StartedAt { get; init; } = DateTimeOffset.Now;
@@ -25,6 +27,14 @@ public sealed class RecheckExecutionRecord
     public string TaskStatusAfter { get; init; } = RecheckTaskStatuses.Failed;
 
     public string FaultClosureStatusAfter { get; init; } = string.Empty;
+
+    public string AppliedRuleSource { get; init; } = RecheckRuleHitSources.GlobalDefault;
+
+    public string AppliedRuleScopeType { get; init; } = RecheckRuleScopeTypes.GlobalDefault;
+
+    public string AppliedRuleScopeKey { get; init; } = string.Empty;
+
+    public string AppliedRuleSummary { get; init; } = string.Empty;
 
     public int? OnlineStatus { get; init; }
 
@@ -49,6 +59,9 @@ public sealed class RecheckExecutionRecord
 
     [JsonIgnore]
     public string TriggerTypeText => RecheckTextMapper.ToTriggerTypeText(TriggerType);
+
+    [JsonIgnore]
+    public string AppliedRuleSourceText => RecheckTextMapper.ToRuleHitSourceText(AppliedRuleSource);
 
     [JsonIgnore]
     public string SummaryText => string.IsNullOrWhiteSpace(Summary) ? "--" : Summary.Trim();

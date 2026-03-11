@@ -6,7 +6,6 @@ namespace TylinkInspection.Services;
 public sealed class RecheckSchedulerService : IRecheckSchedulerService
 {
     private static readonly StringComparer TextComparer = StringComparer.OrdinalIgnoreCase;
-    private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(30);
 
     private readonly IRecheckTaskStore _store;
     private readonly IFaultClosureService _faultClosureService;
@@ -17,9 +16,12 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
     private readonly Dictionary<string, RecheckTaskLatestResult> _latestResults = new(StringComparer.OrdinalIgnoreCase);
     private List<RecheckTaskRecord> _tasks = [];
     private List<RecheckExecutionRecord> _executions = [];
+    private RecheckRuleCatalog _ruleCatalog = RecheckRuleCatalog.CreateDefault();
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
     private bool _started;
+
+    private RecheckScheduleRule _activeRule => _ruleCatalog.GlobalDefaultRule;
 
     public RecheckSchedulerService(
         IRecheckTaskStore store,
@@ -159,6 +161,7 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         {
             var now = DateTimeOffset.Now;
             var orderedTasks = _tasks
+                .Select(CreateDisplayTaskSnapshotNoLock)
                 .OrderBy(task => task.IsRunning ? 0 : 1)
                 .ThenBy(task => task.IsEnabled && task.NextRunAt.HasValue && task.NextRunAt.Value <= now ? 0 : 1)
                 .ThenBy(task => task.IsEnabled ? 0 : 1)
@@ -169,6 +172,7 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
 
             return new RecheckQueueOverview
             {
+                RuleCatalog = _ruleCatalog,
                 Tasks = orderedTasks,
                 RecentExecutions = _executions
                     .OrderByDescending(item => item.CompletedAt)
@@ -185,6 +189,107 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                 StatusMessage = $"当前已纳管 {_tasks.Count} 条本地复检任务，到期任务会在客户端内自动扫描执行。"
             };
         }
+    }
+
+    public RecheckRuleCatalog GetRuleCatalog()
+    {
+        EnsureStarted();
+
+        lock (_syncRoot)
+        {
+            return _ruleCatalog;
+        }
+    }
+
+    public RecheckScheduleRule GetScheduleRule()
+    {
+        EnsureStarted();
+
+        lock (_syncRoot)
+        {
+            return _ruleCatalog.GlobalDefaultRule;
+        }
+    }
+
+    public RecheckScheduleRule SaveScheduleRule(RecheckScheduleRule rule, string operatorName)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        EnsureStarted();
+
+        lock (_syncRoot)
+        {
+            _ruleCatalog = _ruleCatalog with
+            {
+                GlobalDefaultRule = NormalizeRule(rule) with
+                {
+                    ScopeType = RecheckRuleScopeTypes.GlobalDefault,
+                    ScopeKey = string.Empty
+                }
+            };
+            _ruleCatalog = _ruleCatalog.Normalize();
+            ApplyActiveRuleToTasksNoLock(DateTimeOffset.Now);
+            PersistStateNoLock();
+        }
+
+        NotifyOverviewChanged();
+        return GetScheduleRule();
+    }
+
+    public RecheckScheduleRule RestoreDefaultScheduleRule(string operatorName)
+    {
+        EnsureStarted();
+        return SaveScheduleRule(RecheckScheduleRule.CreateDefault(), operatorName);
+    }
+
+    public RecheckScheduleRule SaveFaultTypeRule(string faultType, RecheckScheduleRule rule, string operatorName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(faultType);
+        ArgumentNullException.ThrowIfNull(rule);
+        EnsureStarted();
+
+        lock (_syncRoot)
+        {
+            var normalizedRule = NormalizeRule(rule) with
+            {
+                ScopeType = RecheckRuleScopeTypes.FaultType,
+                ScopeKey = faultType.Trim()
+            };
+
+            _ruleCatalog = _ruleCatalog with
+            {
+                FaultTypeRules = _ruleCatalog.FaultTypeRules
+                    .Where(item => !TextComparer.Equals(item.ScopeKey, faultType))
+                    .Append(normalizedRule)
+                    .ToList()
+            };
+            _ruleCatalog = _ruleCatalog.Normalize();
+            ApplyActiveRuleToTasksNoLock(DateTimeOffset.Now);
+            PersistStateNoLock();
+        }
+
+        NotifyOverviewChanged();
+        return GetRuleCatalog().FaultTypeRules.First(item => TextComparer.Equals(item.ScopeKey, faultType));
+    }
+
+    public void RemoveFaultTypeRule(string faultType, string operatorName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(faultType);
+        EnsureStarted();
+
+        lock (_syncRoot)
+        {
+            _ruleCatalog = _ruleCatalog with
+            {
+                FaultTypeRules = _ruleCatalog.FaultTypeRules
+                    .Where(item => !TextComparer.Equals(item.ScopeKey, faultType))
+                    .ToList()
+            };
+            _ruleCatalog = _ruleCatalog.Normalize();
+            ApplyActiveRuleToTasksNoLock(DateTimeOffset.Now);
+            PersistStateNoLock();
+        }
+
+        NotifyOverviewChanged();
     }
 
     public RecheckTaskRecord EnsureTask(
@@ -210,7 +315,7 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         }
 
         NotifyOverviewChanged();
-        return task;
+        return CreateDisplayTaskSnapshot(task);
     }
 
     public RecheckTaskRecord TriggerTaskNow(string taskId, string operatorName)
@@ -228,7 +333,7 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
 
         lock (_syncRoot)
         {
-            return FindTaskById(taskId);
+            return CreateDisplayTaskSnapshot(FindTaskById(taskId));
         }
     }
 
@@ -246,11 +351,13 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                 throw new InvalidOperationException("终态任务不支持再次启用或停用。");
             }
 
+            var effectiveRule = GetEffectiveRuleNoLock(current);
             updated = current with
             {
                 IsEnabled = isEnabled,
-                CurrentStatus = isEnabled ? RecheckTaskStatuses.Scheduled : current.CurrentStatus,
-                NextRunAt = isEnabled ? now.AddMinutes(Math.Max(1, current.ScheduleRule.InitialDelayMinutes)) : null,
+                CurrentStatus = isEnabled ? ResolveEnabledStatus(effectiveRule) : current.CurrentStatus,
+                NextRunAt = isEnabled ? ResolveInitialNextRunAt(effectiveRule, now, true) : null,
+                MaxRetryCount = effectiveRule.MaxRetryCount,
                 UpdatedAt = now,
                 LastExecutionSummary = isEnabled
                     ? $"任务已由 {NormalizeOperator(operatorName)} 启用，等待下次调度。"
@@ -262,17 +369,106 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         }
 
         NotifyOverviewChanged();
-        return updated;
+        return CreateDisplayTaskSnapshot(updated);
+    }
+
+    public RecheckTaskRecord SaveTaskRuleOverride(string taskId, RecheckScheduleRule rule, string operatorName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        ArgumentNullException.ThrowIfNull(rule);
+        EnsureStarted();
+
+        RecheckTaskRecord updated;
+        var now = DateTimeOffset.Now;
+        lock (_syncRoot)
+        {
+            if (!_ruleCatalog.GlobalDefaultRule.AllowManualOverride)
+            {
+                throw new InvalidOperationException("当前默认规则未开启手动覆盖。");
+            }
+
+            var current = FindTaskById(taskId);
+            if (current.IsTerminalTask)
+            {
+                throw new InvalidOperationException("终态任务不支持再设置单任务规则覆盖。");
+            }
+
+            var overrideRule = NormalizeRule(rule) with
+            {
+                ScopeType = RecheckRuleScopeTypes.ManualOverride,
+                ScopeKey = current.TaskId
+            };
+
+            updated = current with
+            {
+                HasManualRuleOverride = true,
+                ScheduleType = overrideRule.ScheduleType,
+                ScheduleRule = overrideRule,
+                MaxRetryCount = overrideRule.MaxRetryCount,
+                UpdatedAt = now,
+                CurrentStatus = current.IsRunning ? current.CurrentStatus : ResolveEnabledStatus(overrideRule),
+                NextRunAt = current.IsRunning
+                    ? current.NextRunAt
+                    : current.NextRunAt ?? ResolveInitialNextRunAt(overrideRule, now, current.IsEnabled),
+                LastExecutionSummary = $"任务规则已由 {NormalizeOperator(operatorName)} 更新为单任务覆盖。"
+            };
+
+            ReplaceTaskNoLock(updated);
+            PersistStateNoLock();
+        }
+
+        NotifyOverviewChanged();
+        return CreateDisplayTaskSnapshot(updated);
+    }
+
+    public RecheckTaskRecord ClearTaskRuleOverride(string taskId, string operatorName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        EnsureStarted();
+
+        RecheckTaskRecord updated;
+        var now = DateTimeOffset.Now;
+        lock (_syncRoot)
+        {
+            var current = FindTaskById(taskId);
+            if (current.IsTerminalTask)
+            {
+                throw new InvalidOperationException("终态任务不支持再清除单任务规则覆盖。");
+            }
+
+            var resolvedRule = ResolveInheritedRuleNoLock(current);
+            updated = current with
+            {
+                HasManualRuleOverride = false,
+                ScheduleType = resolvedRule.Rule.ScheduleType,
+                ScheduleRule = _ruleCatalog.GlobalDefaultRule,
+                EffectiveRuleSource = resolvedRule.RuleSource,
+                EffectiveRuleScopeType = resolvedRule.Rule.ScopeType,
+                EffectiveRuleScopeKey = resolvedRule.ScopeKey,
+                MaxRetryCount = resolvedRule.Rule.MaxRetryCount,
+                UpdatedAt = now,
+                CurrentStatus = current.IsRunning ? current.CurrentStatus : ResolveEnabledStatus(resolvedRule.Rule),
+                NextRunAt = current.IsRunning
+                    ? current.NextRunAt
+                    : current.NextRunAt ?? ResolveInitialNextRunAt(resolvedRule.Rule, now, current.IsEnabled),
+                LastExecutionSummary = $"任务规则已由 {NormalizeOperator(operatorName)} 恢复为继承规则。"
+            };
+
+            ReplaceTaskNoLock(updated);
+            PersistStateNoLock();
+        }
+
+        NotifyOverviewChanged();
+        return CreateDisplayTaskSnapshot(updated);
     }
 
     private async Task RunLoopAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(ScanInterval);
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await timer.WaitForNextTickAsync(cancellationToken);
+                await Task.Delay(GetScanInterval(), cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -322,9 +518,16 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                 .ThenBy(item => item.UpdatedAt)
                 .FirstOrDefault();
 
-            return task is null
-                ? null
-                : PrepareTaskForExecutionNoLock(task, "system-scheduler", RecheckExecutionTriggerTypes.Scheduled, now);
+            if (task is null)
+            {
+                return null;
+            }
+
+            var triggerType = task.RetryCount > 0 || TextComparer.Equals(task.CurrentStatus, RecheckTaskStatuses.Failed)
+                ? RecheckExecutionTriggerTypes.Retry
+                : RecheckExecutionTriggerTypes.Scheduled;
+
+            return PrepareTaskForExecutionNoLock(task, "system-scheduler", triggerType, now);
         }
     }
 
@@ -357,9 +560,17 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         string triggerType,
         DateTimeOffset startedAt)
     {
+        var resolvedRule = ResolveRuleSelectionNoLock(task);
+        var effectiveRule = resolvedRule.Rule;
         var running = task with
         {
             CurrentStatus = RecheckTaskStatuses.Running,
+            ScheduleType = effectiveRule.ScheduleType,
+            ScheduleRule = task.HasManualRuleOverride ? task.ScheduleRule.Normalize() : effectiveRule,
+            EffectiveRuleSource = resolvedRule.RuleSource,
+            EffectiveRuleScopeType = effectiveRule.ScopeType,
+            EffectiveRuleScopeKey = resolvedRule.ScopeKey,
+            MaxRetryCount = effectiveRule.MaxRetryCount,
             UpdatedAt = startedAt,
             LastExecutionSummary = $"{RecheckTextMapper.ToTriggerTypeText(triggerType)}已开始执行。"
         };
@@ -367,7 +578,7 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         ReplaceTaskNoLock(running);
         PersistStateNoLock();
 
-        return new PreparedTaskExecution(running, NormalizeOperator(operatorName), triggerType, startedAt);
+        return new PreparedTaskExecution(running, NormalizeOperator(operatorName), triggerType, startedAt, resolvedRule);
     }
 
     private void ExecutePreparedTask(PreparedTaskExecution prepared)
@@ -377,8 +588,8 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         lock (_syncRoot)
         {
             var current = FindTaskById(prepared.Task.TaskId);
-            var updatedTask = ApplyExecutionResult(current, executionResult, prepared.StartedAt);
-            var executionRecord = BuildExecutionRecord(prepared.Task, executionResult, prepared.TriggerType, prepared.StartedAt);
+            var updatedTask = ApplyExecutionResult(current, executionResult, prepared.StartedAt, prepared.RuleSelection);
+            var executionRecord = BuildExecutionRecord(prepared.Task, executionResult, prepared.TriggerType, prepared.StartedAt, prepared.RuleSelection);
 
             ReplaceTaskNoLock(updatedTask);
             _executions.RemoveAll(item => TextComparer.Equals(item.ExecutionId, executionRecord.ExecutionId));
@@ -466,7 +677,9 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         RecheckTaskRecord task,
         DeviceInspectionResult? inspectionResult)
     {
-        if (inspectionResult is null ||
+        var effectiveRule = GetEffectiveRule(task);
+        if (!effectiveRule.UseLightPlaybackReview ||
+            inspectionResult is null ||
             (!inspectionResult.IsAbnormal &&
              inspectionResult.HasPreferredUrl &&
              inspectionResult.PlaybackHealthGrade is not PlaybackHealthGrade.D and not PlaybackHealthGrade.E))
@@ -493,9 +706,11 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
     private RecheckTaskRecord ApplyExecutionResult(
         RecheckTaskRecord current,
         TaskExecutionResult executionResult,
-        DateTimeOffset startedAt)
+        DateTimeOffset startedAt,
+        ResolvedRuleSelection ruleSelection)
     {
         var now = DateTimeOffset.Now;
+        var effectiveRule = ruleSelection.Rule;
         var nextRetryCount = current.RetryCount;
         DateTimeOffset? nextRunAt = null;
         var currentStatus = executionResult.TaskStatus;
@@ -505,10 +720,6 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         {
             case ExecutionResultKind.Passed:
             case ExecutionResultKind.Completed:
-                nextRetryCount = 0;
-                nextRunAt = null;
-                isEnabled = false;
-                break;
             case ExecutionResultKind.Canceled:
                 nextRetryCount = 0;
                 nextRunAt = null;
@@ -517,13 +728,14 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
             case ExecutionResultKind.Failed:
                 nextRetryCount = 0;
                 nextRunAt = current.IsEnabled
-                    ? ResolveNextRunAt(current.ScheduleRule, now, false)
+                    ? ResolveNextRunAt(effectiveRule, now, false)
                     : null;
                 break;
             case ExecutionResultKind.Error:
-                nextRetryCount = Math.Min(current.MaxRetryCount, current.RetryCount + 1);
+                var attemptedRetryCount = current.RetryCount + 1;
+                nextRetryCount = Math.Min(effectiveRule.MaxRetryCount, attemptedRetryCount);
                 nextRunAt = current.IsEnabled
-                    ? ResolveNextRunAt(current.ScheduleRule, now, nextRetryCount <= current.MaxRetryCount)
+                    ? ResolveNextRunAt(effectiveRule, now, attemptedRetryCount <= effectiveRule.MaxRetryCount)
                     : null;
                 break;
         }
@@ -532,9 +744,15 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         {
             CurrentStatus = currentStatus,
             IsEnabled = isEnabled,
+            ScheduleType = effectiveRule.ScheduleType,
+            ScheduleRule = current.HasManualRuleOverride ? current.ScheduleRule.Normalize() : effectiveRule,
+            EffectiveRuleSource = ruleSelection.RuleSource,
+            EffectiveRuleScopeType = effectiveRule.ScopeType,
+            EffectiveRuleScopeKey = ruleSelection.ScopeKey,
             NextRunAt = nextRunAt,
             LastRunAt = startedAt,
             RetryCount = nextRetryCount,
+            MaxRetryCount = effectiveRule.MaxRetryCount,
             UpdatedAt = now,
             LastExecutionId = executionResult.ExecutionId,
             LastExecutionSummary = executionResult.Summary,
@@ -550,7 +768,8 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         RecheckTaskRecord task,
         TaskExecutionResult executionResult,
         string triggerType,
-        DateTimeOffset startedAt)
+        DateTimeOffset startedAt,
+        ResolvedRuleSelection ruleSelection)
     {
         return new RecheckExecutionRecord
         {
@@ -559,12 +778,17 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
             SourceFaultClosureId = task.SourceFaultClosureId,
             DeviceCode = task.DeviceCode,
             DeviceName = task.DeviceName,
+            FaultType = task.FaultType,
             TriggerType = triggerType,
             StartedAt = startedAt,
             CompletedAt = DateTimeOffset.Now,
             Outcome = executionResult.Outcome,
             TaskStatusAfter = executionResult.TaskStatus,
             FaultClosureStatusAfter = executionResult.FaultClosureStatus,
+            AppliedRuleSource = ruleSelection.RuleSource,
+            AppliedRuleScopeType = ruleSelection.Rule.ScopeType,
+            AppliedRuleScopeKey = ruleSelection.ScopeKey,
+            AppliedRuleSummary = ruleSelection.Rule.RuleSummaryText,
             OnlineStatus = executionResult.InspectionResult?.OnlineStatus,
             PlaybackHealthGrade = executionResult.InspectionResult?.PlaybackHealthGrade ?? PlaybackHealthGrade.E,
             PreferredProtocol = executionResult.InspectionResult?.PreferredProtocol ?? string.Empty,
@@ -605,7 +829,14 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         bool activateExistingTerminalTask)
     {
         var current = _tasks.FirstOrDefault(item => TextComparer.Equals(item.SourceFaultClosureId, sourceRecord.RecordId));
-        var effectiveRule = scheduleRule ?? current?.ScheduleRule ?? RecheckScheduleRule.CreateDefault();
+        var hasManualOverride = scheduleRule is not null && _ruleCatalog.GlobalDefaultRule.AllowManualOverride;
+        if (current is not null && current.HasManualRuleOverride && scheduleRule is null && _ruleCatalog.GlobalDefaultRule.AllowManualOverride)
+        {
+            hasManualOverride = true;
+        }
+
+        var resolvedRule = ResolveEffectiveRuleForEnsure(sourceRecord.FaultType, current, scheduleRule);
+        var effectiveRule = resolvedRule.Rule;
 
         if (current is not null && current.IsTerminalTask && !activateExistingTerminalTask)
         {
@@ -618,9 +849,14 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
             {
                 DeviceCode = sourceRecord.DeviceCode,
                 DeviceName = string.IsNullOrWhiteSpace(sourceRecord.DeviceName) ? sourceRecord.DeviceCode : sourceRecord.DeviceName,
+                FaultType = sourceRecord.FaultType,
                 ScheduleType = effectiveRule.ScheduleType,
-                ScheduleRule = effectiveRule,
-                MaxRetryCount = current.MaxRetryCount <= 0 ? 3 : current.MaxRetryCount,
+                ScheduleRule = hasManualOverride ? effectiveRule : _ruleCatalog.GlobalDefaultRule,
+                EffectiveRuleSource = resolvedRule.RuleSource,
+                EffectiveRuleScopeType = effectiveRule.ScopeType,
+                EffectiveRuleScopeKey = resolvedRule.ScopeKey,
+                MaxRetryCount = effectiveRule.MaxRetryCount,
+                HasManualRuleOverride = hasManualOverride,
                 UpdatedAt = current.UpdatedAt,
                 LastFaultClosureStatus = sourceRecord.CurrentStatus
             };
@@ -629,8 +865,8 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
             {
                 preserved = preserved with
                 {
-                    NextRunAt = now.AddMinutes(Math.Max(1, effectiveRule.InitialDelayMinutes)),
-                    CurrentStatus = RecheckTaskStatuses.Scheduled,
+                    NextRunAt = ResolveInitialNextRunAt(effectiveRule, now, true),
+                    CurrentStatus = ResolveEnabledStatus(effectiveRule),
                     UpdatedAt = now
                 };
             }
@@ -639,22 +875,28 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
             return preserved;
         }
 
+        var isEnabled = current is not null && !current.IsTerminalTask ? current.IsEnabled : true;
         var updated = new RecheckTaskRecord
         {
             TaskId = current?.TaskId ?? Guid.NewGuid().ToString("N"),
             DeviceCode = sourceRecord.DeviceCode,
             DeviceName = string.IsNullOrWhiteSpace(sourceRecord.DeviceName) ? sourceRecord.DeviceCode : sourceRecord.DeviceName,
+            FaultType = sourceRecord.FaultType,
             SourceFaultClosureId = sourceRecord.RecordId,
-            CurrentStatus = RecheckTaskStatuses.Scheduled,
+            CurrentStatus = isEnabled ? ResolveEnabledStatus(effectiveRule) : RecheckTaskStatuses.Pending,
             ScheduleType = effectiveRule.ScheduleType,
-            NextRunAt = now.AddMinutes(Math.Max(1, effectiveRule.InitialDelayMinutes)),
+            NextRunAt = ResolveInitialNextRunAt(effectiveRule, now, isEnabled),
             LastRunAt = current?.LastRunAt,
             RetryCount = current?.RetryCount ?? 0,
-            MaxRetryCount = current?.MaxRetryCount ?? 3,
-            IsEnabled = current is not null && !current.IsTerminalTask ? current.IsEnabled : true,
+            MaxRetryCount = effectiveRule.MaxRetryCount,
+            IsEnabled = isEnabled,
+            HasManualRuleOverride = hasManualOverride,
+            EffectiveRuleSource = resolvedRule.RuleSource,
+            EffectiveRuleScopeType = effectiveRule.ScopeType,
+            EffectiveRuleScopeKey = resolvedRule.ScopeKey,
             CreatedAt = current?.CreatedAt ?? now,
             UpdatedAt = now,
-            ScheduleRule = effectiveRule,
+            ScheduleRule = hasManualOverride ? effectiveRule : _ruleCatalog.GlobalDefaultRule,
             LastExecutionId = current?.LastExecutionId ?? string.Empty,
             LastExecutionSummary = current?.LastExecutionSummary ?? $"任务已加入本地复检队列，等待 {effectiveRule.ScheduleTypeText} 调度。",
             LastExecutionOutcome = current?.LastExecutionOutcome ?? string.Empty,
@@ -710,10 +952,19 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                 $"闭环记录已进入终态 {closureRecord.StatusText}，复检任务已取消。");
         }
 
+        var effectiveRule = GetEffectiveRuleNoLock(task);
+        var resolvedRule = ResolveRuleSelectionNoLock(task);
         return task with
         {
             DeviceCode = closureRecord.DeviceCode,
             DeviceName = closureRecord.DeviceName,
+            FaultType = closureRecord.FaultType,
+            ScheduleType = effectiveRule.ScheduleType,
+            ScheduleRule = task.HasManualRuleOverride ? task.ScheduleRule.Normalize() : effectiveRule,
+            EffectiveRuleSource = resolvedRule.RuleSource,
+            EffectiveRuleScopeType = effectiveRule.ScopeType,
+            EffectiveRuleScopeKey = resolvedRule.ScopeKey,
+            MaxRetryCount = effectiveRule.MaxRetryCount,
             LastFaultClosureStatus = closureRecord.CurrentStatus
         };
     }
@@ -743,7 +994,10 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
 
     private void LoadStateNoLock()
     {
-        _tasks = _store.LoadTasks().ToList();
+        _ruleCatalog = _store.LoadRuleCatalog().Normalize();
+        _tasks = _store.LoadTasks()
+            .Select(NormalizeTaskAfterLoad)
+            .ToList();
         _executions = _store.LoadExecutions()
             .OrderBy(item => item.CompletedAt)
             .ToList();
@@ -755,10 +1009,13 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                 _latestResults[result.TaskId] = result;
             }
         }
+
+        ApplyActiveRuleToTasksNoLock(DateTimeOffset.Now);
     }
 
     private void PersistStateNoLock()
     {
+        _store.SaveRuleCatalog(_ruleCatalog);
         _store.SaveTasks(_tasks
             .OrderBy(item => item.DeviceCode, StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.CreatedAt)
@@ -785,10 +1042,11 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                 continue;
             }
 
+            var effectiveRule = GetEffectiveRuleNoLock(task);
             recovered.Add(task with
             {
-                CurrentStatus = RecheckTaskStatuses.Scheduled,
-                NextRunAt = now.AddMinutes(Math.Max(1, task.ScheduleRule.RetryDelayMinutes)),
+                CurrentStatus = ResolveEnabledStatus(effectiveRule),
+                NextRunAt = ResolveNextRunAt(effectiveRule, now, true),
                 UpdatedAt = now,
                 LastExecutionSummary = "检测到上次客户端退出时任务处于执行中，已恢复为待调度状态。"
             });
@@ -838,20 +1096,28 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                string.Equals(record.CurrentStatus, FaultClosureStatuses.PendingRecheck, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool CanAutoExecute(RecheckTaskRecord task, DateTimeOffset now)
+    private bool CanAutoExecute(RecheckTaskRecord task, DateTimeOffset now)
     {
-        return task.IsEnabled &&
+        var effectiveRule = GetEffectiveRuleNoLock(task);
+        return effectiveRule.IsAutoRecheckEnabled &&
+               task.IsEnabled &&
                !task.IsTerminalTask &&
                !task.IsRunning &&
                task.NextRunAt.HasValue &&
-               task.NextRunAt.Value <= now;
+               task.NextRunAt.Value <= now &&
+               !string.Equals(effectiveRule.ScheduleType, RecheckScheduleTypes.ManualOnly, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static DateTimeOffset? ResolveNextRunAt(
+    private static DateTimeOffset? ResolveInitialNextRunAt(
         RecheckScheduleRule rule,
         DateTimeOffset now,
-        bool preferRetryWindow)
+        bool isEnabled)
     {
+        if (!isEnabled || !rule.IsAutoRecheckEnabled)
+        {
+            return null;
+        }
+
         if (string.Equals(rule.ScheduleType, RecheckScheduleTypes.ManualOnly, StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -861,7 +1127,30 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         {
             return rule.PlannedRunAt.HasValue && rule.PlannedRunAt.Value > now
                 ? rule.PlannedRunAt.Value
-                : now.AddMinutes(Math.Max(1, rule.IntervalMinutes));
+                : now.AddMinutes(Math.Max(0, rule.InitialDelayMinutes));
+        }
+
+        return now.AddMinutes(Math.Max(0, rule.InitialDelayMinutes));
+    }
+
+    private static DateTimeOffset? ResolveNextRunAt(
+        RecheckScheduleRule rule,
+        DateTimeOffset now,
+        bool preferRetryWindow)
+    {
+        if (!rule.IsAutoRecheckEnabled ||
+            string.Equals(rule.ScheduleType, RecheckScheduleTypes.ManualOnly, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (string.Equals(rule.ScheduleType, RecheckScheduleTypes.SpecificTime, StringComparison.OrdinalIgnoreCase))
+        {
+            return rule.PlannedRunAt.HasValue && rule.PlannedRunAt.Value > now
+                ? rule.PlannedRunAt.Value
+                : now.AddMinutes(preferRetryWindow
+                    ? Math.Max(1, rule.RetryDelayMinutes)
+                    : Math.Max(1, rule.IntervalMinutes));
         }
 
         var delayMinutes = preferRetryWindow
@@ -903,6 +1192,216 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
         return string.Join(" / ", segments.Where(item => !string.IsNullOrWhiteSpace(item)));
     }
 
+    private static string BuildCreatedSummary(string operatorName, RecheckScheduleRule rule, bool isEnabled)
+    {
+        if (!isEnabled)
+        {
+            return $"任务已由 {NormalizeOperator(operatorName)} 创建，当前保持停用。";
+        }
+
+        if (!rule.IsAutoRecheckEnabled)
+        {
+            return "任务已加入本地复检队列，当前自动复检停用，可继续手动触发。";
+        }
+
+        return $"任务已加入本地复检队列，将按“{rule.RuleSummaryText}”调度执行。";
+    }
+
+    private static string BuildEnabledSummary(string operatorName, RecheckScheduleRule rule)
+    {
+        return rule.IsAutoRecheckEnabled
+            ? $"任务已由 {NormalizeOperator(operatorName)} 启用，等待下一次调度。"
+            : $"任务已由 {NormalizeOperator(operatorName)} 启用，但当前自动复检停用。";
+    }
+
+    private string BuildQueueStatusMessage(DateTimeOffset now)
+    {
+        var dueCount = _tasks.Count(item => CanAutoExecute(item, now));
+        var autoText = _activeRule.IsAutoRecheckEnabled
+            ? $"自动复检开启，调度扫描每 {_activeRule.ScanIntervalSeconds} 秒执行一次。"
+            : "自动复检已停用，仅保留本地任务和手动触发能力。";
+
+        return $"当前已纳管 {_tasks.Count} 条本地复检任务，待执行 {dueCount} 条。{autoText}";
+    }
+
+    private TimeSpan GetScanInterval()
+    {
+        lock (_syncRoot)
+        {
+            return TimeSpan.FromSeconds(Math.Max(5, _activeRule.ScanIntervalSeconds));
+        }
+    }
+
+    private void ApplyActiveRuleToTasksNoLock(DateTimeOffset now)
+    {
+        var updatedTasks = new List<RecheckTaskRecord>(_tasks.Count);
+
+        foreach (var task in _tasks)
+        {
+            var resolvedRule = ResolveRuleSelectionNoLock(task);
+            var effectiveRule = resolvedRule.Rule;
+            var updatedTask = task with
+            {
+                ScheduleType = effectiveRule.ScheduleType,
+                ScheduleRule = task.HasManualRuleOverride ? task.ScheduleRule.Normalize() : _ruleCatalog.GlobalDefaultRule,
+                EffectiveRuleSource = resolvedRule.RuleSource,
+                EffectiveRuleScopeType = effectiveRule.ScopeType,
+                EffectiveRuleScopeKey = resolvedRule.ScopeKey,
+                MaxRetryCount = effectiveRule.MaxRetryCount
+            };
+
+            if (!updatedTask.IsRunning && updatedTask.IsEnabled && !updatedTask.NextRunAt.HasValue)
+            {
+                updatedTask = updatedTask with
+                {
+                    CurrentStatus = ResolveEnabledStatus(effectiveRule),
+                    NextRunAt = ResolveInitialNextRunAt(effectiveRule, now, true)
+                };
+            }
+
+            updatedTasks.Add(updatedTask);
+        }
+
+        _tasks = updatedTasks;
+    }
+
+    private RecheckTaskRecord NormalizeTaskAfterLoad(RecheckTaskRecord task)
+    {
+        var normalizedRule = task.ScheduleRule?.Normalize() ?? RecheckScheduleRule.CreateDefault();
+        return task with
+        {
+            FaultType = task.FaultType?.Trim() ?? string.Empty,
+            ScheduleType = string.IsNullOrWhiteSpace(task.ScheduleType) ? normalizedRule.ScheduleType : task.ScheduleType,
+            ScheduleRule = normalizedRule,
+            MaxRetryCount = task.MaxRetryCount > 0 ? task.MaxRetryCount : normalizedRule.MaxRetryCount,
+            EffectiveRuleSource = string.IsNullOrWhiteSpace(task.EffectiveRuleSource) ? RecheckRuleHitSources.GlobalDefault : task.EffectiveRuleSource,
+            EffectiveRuleScopeType = string.IsNullOrWhiteSpace(task.EffectiveRuleScopeType) ? RecheckRuleScopeTypes.GlobalDefault : task.EffectiveRuleScopeType,
+            EffectiveRuleScopeKey = task.EffectiveRuleScopeKey?.Trim() ?? string.Empty
+        };
+    }
+
+    private RecheckTaskRecord CreateDisplayTaskSnapshot(RecheckTaskRecord task)
+    {
+        lock (_syncRoot)
+        {
+            return CreateDisplayTaskSnapshotNoLock(task);
+        }
+    }
+
+    private RecheckTaskRecord CreateDisplayTaskSnapshotNoLock(RecheckTaskRecord task)
+    {
+        var resolvedRule = ResolveRuleSelectionNoLock(task);
+        var effectiveRule = resolvedRule.Rule;
+        return task with
+        {
+            ScheduleType = effectiveRule.ScheduleType,
+            ScheduleRule = effectiveRule,
+            EffectiveRuleSource = resolvedRule.RuleSource,
+            EffectiveRuleScopeType = effectiveRule.ScopeType,
+            EffectiveRuleScopeKey = resolvedRule.ScopeKey,
+            MaxRetryCount = effectiveRule.MaxRetryCount
+        };
+    }
+
+    private ResolvedRuleSelection ResolveEffectiveRuleForEnsure(
+        string faultType,
+        RecheckTaskRecord? current,
+        RecheckScheduleRule? requestedRule)
+    {
+        if (requestedRule is not null && _ruleCatalog.GlobalDefaultRule.AllowManualOverride)
+        {
+            var overrideRule = NormalizeRule(requestedRule) with
+            {
+                ScopeType = RecheckRuleScopeTypes.ManualOverride,
+                ScopeKey = current?.TaskId ?? string.Empty
+            };
+            return new ResolvedRuleSelection(overrideRule, RecheckRuleHitSources.ManualOverride, current?.TaskId ?? string.Empty);
+        }
+
+        if (current is not null && current.HasManualRuleOverride && _ruleCatalog.GlobalDefaultRule.AllowManualOverride)
+        {
+            return new ResolvedRuleSelection(
+                NormalizeRule(current.ScheduleRule) with
+                {
+                    ScopeType = RecheckRuleScopeTypes.ManualOverride,
+                    ScopeKey = current.TaskId
+                },
+                RecheckRuleHitSources.ManualOverride,
+                current.TaskId);
+        }
+
+        return ResolveInheritedRuleNoLock(faultType);
+    }
+
+    private RecheckScheduleRule GetEffectiveRule(RecheckTaskRecord task)
+    {
+        lock (_syncRoot)
+        {
+            return GetEffectiveRuleNoLock(task);
+        }
+    }
+
+    private RecheckScheduleRule GetEffectiveRuleNoLock(RecheckTaskRecord task)
+    {
+        return ResolveRuleSelectionNoLock(task).Rule;
+    }
+
+    private ResolvedRuleSelection ResolveRuleSelectionNoLock(RecheckTaskRecord task)
+    {
+        if (task.HasManualRuleOverride && _ruleCatalog.GlobalDefaultRule.AllowManualOverride)
+        {
+            return new ResolvedRuleSelection(
+                NormalizeRule(task.ScheduleRule) with
+                {
+                    ScopeType = RecheckRuleScopeTypes.ManualOverride,
+                    ScopeKey = task.TaskId
+                },
+                RecheckRuleHitSources.ManualOverride,
+                task.TaskId);
+        }
+
+        return ResolveInheritedRuleNoLock(task);
+    }
+
+    private ResolvedRuleSelection ResolveInheritedRuleNoLock(RecheckTaskRecord task)
+    {
+        return ResolveInheritedRuleNoLock(task.FaultType);
+    }
+
+    private ResolvedRuleSelection ResolveInheritedRuleNoLock(string? faultType)
+    {
+        if (!string.IsNullOrWhiteSpace(faultType))
+        {
+            var faultTypeRule = _ruleCatalog.FaultTypeRules.FirstOrDefault(item =>
+                TextComparer.Equals(item.ScopeKey, faultType));
+            if (faultTypeRule is not null)
+            {
+                var normalizedFaultTypeRule = NormalizeRule(faultTypeRule) with
+                {
+                    ScopeType = RecheckRuleScopeTypes.FaultType,
+                    ScopeKey = faultType.Trim()
+                };
+                return new ResolvedRuleSelection(
+                    normalizedFaultTypeRule,
+                    RecheckRuleHitSources.FaultTypeRule,
+                    faultType.Trim());
+            }
+        }
+
+        return new ResolvedRuleSelection(
+            _ruleCatalog.GlobalDefaultRule,
+            RecheckRuleHitSources.GlobalDefault,
+            string.Empty);
+    }
+
+    private static string ResolveEnabledStatus(RecheckScheduleRule rule)
+    {
+        return rule.IsAutoRecheckEnabled &&
+               !string.Equals(rule.ScheduleType, RecheckScheduleTypes.ManualOnly, StringComparison.OrdinalIgnoreCase)
+            ? RecheckTaskStatuses.Scheduled
+            : RecheckTaskStatuses.Pending;
+    }
+
     private void EnsureStarted()
     {
         if (!_started)
@@ -914,6 +1413,14 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
     private void NotifyOverviewChanged()
     {
         OverviewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static RecheckScheduleRule NormalizeRule(RecheckScheduleRule rule)
+    {
+        var normalized = rule.Normalize();
+        return string.IsNullOrWhiteSpace(normalized.RuleId)
+            ? normalized with { RuleId = Guid.NewGuid().ToString("N") }
+            : normalized;
     }
 
     private static string NormalizeOperator(string? operatorName)
@@ -936,7 +1443,13 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                left.NextRunAt == right.NextRunAt &&
                left.LastRunAt == right.LastRunAt &&
                left.RetryCount == right.RetryCount &&
+               left.MaxRetryCount == right.MaxRetryCount &&
                left.IsEnabled == right.IsEnabled &&
+               left.HasManualRuleOverride == right.HasManualRuleOverride &&
+               left.FaultType == right.FaultType &&
+               left.EffectiveRuleSource == right.EffectiveRuleSource &&
+               left.EffectiveRuleScopeType == right.EffectiveRuleScopeType &&
+               left.EffectiveRuleScopeKey == right.EffectiveRuleScopeKey &&
                left.DeviceCode == right.DeviceCode &&
                left.DeviceName == right.DeviceName &&
                left.LastExecutionSummary == right.LastExecutionSummary &&
@@ -944,11 +1457,17 @@ public sealed class RecheckSchedulerService : IRecheckSchedulerService
                left.LastFaultClosureStatus == right.LastFaultClosureStatus;
     }
 
+    private readonly record struct ResolvedRuleSelection(
+        RecheckScheduleRule Rule,
+        string RuleSource,
+        string ScopeKey);
+
     private readonly record struct PreparedTaskExecution(
         RecheckTaskRecord Task,
         string OperatorName,
         string TriggerType,
-        DateTimeOffset StartedAt);
+        DateTimeOffset StartedAt,
+        ResolvedRuleSelection RuleSelection);
 
     private sealed record TaskExecutionResult(
         string ExecutionId,

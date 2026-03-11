@@ -4,6 +4,10 @@ namespace TylinkInspection.Core.Contracts;
 
 public interface IRecheckTaskStore
 {
+    RecheckRuleCatalog LoadRuleCatalog();
+
+    void SaveRuleCatalog(RecheckRuleCatalog catalog);
+
     IReadOnlyList<RecheckTaskRecord> LoadTasks();
 
     void SaveTasks(IReadOnlyList<RecheckTaskRecord> tasks);

@@ -2,6 +2,10 @@ namespace TylinkInspection.Core.Models;
 
 public sealed class RecheckQueueOverview
 {
+    public RecheckRuleCatalog RuleCatalog { get; init; } = RecheckRuleCatalog.CreateDefault();
+
+    public RecheckScheduleRule ActiveRule => RuleCatalog.GlobalDefaultRule;
+
     public IReadOnlyList<RecheckTaskRecord> Tasks { get; init; } = Array.Empty<RecheckTaskRecord>();
 
     public IReadOnlyList<RecheckExecutionRecord> RecentExecutions { get; init; } = Array.Empty<RecheckExecutionRecord>();

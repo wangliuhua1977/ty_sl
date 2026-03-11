@@ -76,6 +76,104 @@
                         <Border Style="{StaticResource PanelCardStyle}">
                             <StackPanel>
                                 <DockPanel>
+                                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="复检规则" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                        <TextBlock Text="{Binding CurrentRecheckRuleAutoText}" />
+                                    </Border>
+                                </DockPanel>
+                                <TextBlock Margin="0,10,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding CurrentRecheckRuleSummaryText}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding CurrentRecheckRuleManualOverrideText}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding CurrentRecheckRuleDraftStateText}" />
+                                <Grid Margin="0,16,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="首次延迟(分钟)" />
+                                        <TextBox Margin="0,6,0,0" Text="{Binding RecheckRuleInitialDelayMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="复检间隔(分钟)" />
+                                        <TextBox Margin="0,6,0,0" Text="{Binding RecheckRuleIntervalMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Margin="0,14,8,0">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="失败重试(分钟)" />
+                                        <TextBox Margin="0,6,0,0" Text="{Binding RecheckRuleRetryDelayMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,14,0,0">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="最大重试次数" />
+                                        <TextBox Margin="0,6,0,0" Text="{Binding RecheckRuleMaxRetryCountText, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                </Grid>
+                                <CheckBox Margin="0,16,0,0" IsChecked="{Binding RecheckRuleAutoEnabled}" Content="启用自动复检" />
+                                <CheckBox Margin="0,8,0,0" IsChecked="{Binding RecheckRuleAllowManualOverride}" Content="允许手动覆盖默认规则" />
+                                <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource ToneInfoBrush}" TextWrapping="Wrap" Text="{Binding RecheckRuleFeedbackText}" />
+                                <WrapPanel Margin="0,16,0,0">
+                                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding SaveRecheckRuleCommand}" IsEnabled="{Binding CanSaveRecheckRule}" Content="保存规则" />
+                                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding RestoreDefaultRecheckRuleCommand}" IsEnabled="{Binding CanRestoreDefaultRecheckRule}" Content="恢复默认" />
+                                </WrapPanel>
+                                <Border Margin="0,18,0,0" Padding="12" Background="{DynamicResource MetricTileBackgroundBrush}" BorderBrush="{DynamicResource PanelCardBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="故障类型规则" />
+                                        <ComboBox Margin="0,10,0,0" ItemsSource="{Binding FaultTypeRuleOptions}" SelectedItem="{Binding SelectedFaultTypeRuleOption}" DisplayMemberPath="Title" />
+                                        <TextBlock Margin="0,10,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedFaultTypeRuleStateText}" />
+                                        <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedFaultTypeRuleSummaryText}" />
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="首次延迟(分钟)" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding FaultTypeRuleInitialDelayMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="复检间隔(分钟)" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding FaultTypeRuleIntervalMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Margin="0,14,8,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="失败重试(分钟)" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding FaultTypeRuleRetryDelayMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,14,0,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="最大重试次数" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding FaultTypeRuleMaxRetryCountText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <CheckBox Margin="0,14,0,0" IsChecked="{Binding FaultTypeRuleAutoEnabled}" Content="启用该故障类型自动复检" />
+                                        <TextBlock Margin="0,10,0,0" Foreground="{DynamicResource ToneInfoBrush}" TextWrapping="Wrap" Text="{Binding FaultTypeRuleFeedbackText}" />
+                                        <WrapPanel Margin="0,14,0,0">
+                                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding SaveFaultTypeRuleCommand}" IsEnabled="{Binding CanSaveFaultTypeRule}" Content="保存故障类型规则" />
+                                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding RemoveFaultTypeRuleCommand}" IsEnabled="{Binding CanRemoveFaultTypeRule}" Content="移除故障类型规则" />
+                                        </WrapPanel>
+                                        <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding ConfiguredFaultTypeRules}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Margin="0,0,0,8" Padding="10" Background="{DynamicResource FilterBadgeBackgroundBrush}" BorderBrush="{DynamicResource PanelCardBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                                        <StackPanel>
+                                                            <TextBlock FontWeight="SemiBold" Text="{Binding ScopeKey}" />
+                                                            <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding RuleSummaryText}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource PanelCardStyle}">
+                            <StackPanel>
+                                <DockPanel>
                                     <TextBlock Style="{StaticResource SectionTitleStyle}" Text="复检任务队列" />
                                     <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource FilterBadgeBackgroundBrush}">
                                         <TextBlock Text="{Binding RecheckTasks.Count, StringFormat=当前 {0} 条}" />
@@ -260,6 +358,46 @@
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskNextRunText, StringFormat=下次执行：{0}}" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedTaskRuleText}" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedTaskLatestResultText}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskRuleSourceText, StringFormat=命中规则：{0}}" />
+                                <Border Margin="0,16,0,0" Padding="12" Background="{DynamicResource MetricTileBackgroundBrush}" BorderBrush="{DynamicResource PanelCardBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="单任务规则覆盖" />
+                                        <TextBlock Margin="0,8,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="当前任务可在此覆盖默认规则或故障类型规则。" />
+                                        <CheckBox Margin="0,12,0,0" IsChecked="{Binding SelectedTaskOverrideEnabled}" Content="启用单任务覆盖" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="首次延迟(分钟)" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding SelectedTaskOverrideInitialDelayMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="复检间隔(分钟)" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding SelectedTaskOverrideIntervalMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Margin="0,14,8,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="失败重试(分钟)" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding SelectedTaskOverrideRetryDelayMinutesText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,14,0,0">
+                                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="最大重试次数" />
+                                                <TextBox Margin="0,6,0,0" Text="{Binding SelectedTaskOverrideMaxRetryCountText, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <CheckBox Margin="0,12,0,0" IsChecked="{Binding SelectedTaskOverrideAutoEnabled}" Content="启用该任务自动复检" />
+                                        <TextBlock Margin="0,10,0,0" Foreground="{DynamicResource ToneInfoBrush}" TextWrapping="Wrap" Text="{Binding SelectedTaskOverrideFeedbackText}" />
+                                        <WrapPanel Margin="0,14,0,0">
+                                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding SaveSelectedTaskOverrideCommand}" IsEnabled="{Binding CanSaveSelectedTaskOverride}" Content="保存任务覆盖" />
+                                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding ClearSelectedTaskOverrideCommand}" IsEnabled="{Binding CanClearSelectedTaskOverride}" Content="恢复继承规则" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
                                 <TextBox IsEnabled="{Binding HasSelectedRecord}" Text="{Binding OperatorName, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="操作备注" />
                                 <TextBox Height="84" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding HasSelectedRecord}" TextWrapping="Wrap" Text="{Binding ActionNote, UpdateSourceTrigger=PropertyChanged}" />

@@ -51,4 +51,24 @@ public static class RecheckTextMapper
             _ => "自动调度"
         };
     }
+
+    public static string ToRuleScopeText(string? scopeType)
+    {
+        return scopeType switch
+        {
+            RecheckRuleScopeTypes.FaultType => "故障类型规则",
+            RecheckRuleScopeTypes.ManualOverride => "单任务覆盖",
+            _ => "全局默认规则"
+        };
+    }
+
+    public static string ToRuleHitSourceText(string? sourceType)
+    {
+        return sourceType switch
+        {
+            RecheckRuleHitSources.ManualOverride => "单任务覆盖规则",
+            RecheckRuleHitSources.FaultTypeRule => "故障类型规则",
+            _ => "全局默认规则"
+        };
+    }
 }
