@@ -1031,6 +1031,11 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         }
 
         var faultTypeKey = SelectedFaultTypeRuleOption.Key;
+        if (string.IsNullOrWhiteSpace(faultTypeKey))
+        {
+            FaultTypeRuleFeedbackText = "请选择需要配置的故障类型。";
+            return;
+        }
 
         if (!TryBuildFaultTypeRuleFromDraft(out var rule, out var errorMessage))
         {
@@ -1052,6 +1057,11 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         }
 
         var faultTypeKey = SelectedFaultTypeRuleOption.Key;
+        if (string.IsNullOrWhiteSpace(faultTypeKey))
+        {
+            FaultTypeRuleFeedbackText = "请选择需要移除规则的故障类型。";
+            return;
+        }
 
         if (IsProcessingAction)
         {
@@ -1207,7 +1217,7 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         var selectedKey = SelectedFaultTypeRuleOption?.Key ?? string.Empty;
         ReplaceCollection(FaultTypeRuleOptions, BuildFaultTypeRuleOptions(FaultTypeOptions
             .Where(item => !string.IsNullOrWhiteSpace(item.Key))
-            .Select(item => item.Key)));
+            .Select(item => item.Key!)));
         SelectedFaultTypeRuleOption = FaultTypeRuleOptions.FirstOrDefault(item => string.Equals(item.Key, selectedKey, StringComparison.OrdinalIgnoreCase))
             ?? FaultTypeRuleOptions.FirstOrDefault();
     }
