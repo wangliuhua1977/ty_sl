@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Input;
 using TylinkInspection.Core.Contracts;
 using TylinkInspection.Core.Models;
@@ -8,6 +9,7 @@ namespace TylinkInspection.UI.ViewModels;
 public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
 {
     private readonly IFaultClosureService _faultClosureService;
+    private readonly IRecheckSchedulerService _recheckSchedulerService;
     private readonly IInspectionScopeService _inspectionScopeService;
     private readonly IDeviceCatalogService _deviceCatalogService;
     private readonly IDeviceInspectionService _deviceInspectionService;
@@ -17,9 +19,11 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
     private SelectionItemViewModel? _selectedSourceOption;
     private SelectionItemViewModel? _selectedFaultTypeOption;
     private FaultClosureRecord? _selectedRecord;
+    private RecheckTaskRecord? _selectedRecheckTask;
     private string _statusText = "正在汇聚本地闭环记录...";
     private string _warningText = string.Empty;
     private string _lastUpdatedText = "--";
+    private string _recheckQueueStatusText = "正在加载本地复检任务...";
     private string _operatorName = ResolveDefaultOperator();
     private string _actionNote = string.Empty;
     private bool _pendingRecheckOnly;
@@ -30,6 +34,7 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
     public FaultClosureCenterPageViewModel(
         ModulePageData pageData,
         IFaultClosureService faultClosureService,
+        IRecheckSchedulerService recheckSchedulerService,
         IInspectionScopeService inspectionScopeService,
         IDeviceCatalogService deviceCatalogService,
         IDeviceInspectionService deviceInspectionService,
@@ -39,10 +44,13 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         : base(pageData.PageTitle, pageData.PageSubtitle)
     {
         _faultClosureService = faultClosureService;
+        _recheckSchedulerService = recheckSchedulerService;
         _inspectionScopeService = inspectionScopeService;
         _deviceCatalogService = deviceCatalogService;
         _deviceInspectionService = deviceInspectionService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
+        _faultClosureService.OverviewChanged += OnFaultClosureOverviewChanged;
+        _recheckSchedulerService.OverviewChanged += OnRecheckOverviewChanged;
 
         StatusBadgeText = pageData.StatusBadgeText;
         StatusBadgeAccentResourceKey = pageData.StatusBadgeAccentResourceKey;
@@ -52,12 +60,18 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         SourceOptions = new ObservableCollection<SelectionItemViewModel>(BuildSourceOptions());
         FaultTypeOptions = new ObservableCollection<SelectionItemViewModel>(BuildAllOption("全部故障类型"));
         Records = new ObservableCollection<FaultClosureRecord>();
+        RecheckTasks = new ObservableCollection<RecheckTaskRecord>();
+        SelectedTaskExecutions = new ObservableCollection<RecheckExecutionRecord>();
 
         _selectedStatusOption = StatusOptions.FirstOrDefault();
         _selectedSourceOption = SourceOptions.FirstOrDefault();
         _selectedFaultTypeOption = FaultTypeOptions.FirstOrDefault();
 
         RefreshCommand = new RelayCommand<object?>(_ => _ = RefreshAsync(preserveSelection: true));
+        RefreshRecheckQueueCommand = new RelayCommand<object?>(_ => RefreshRecheckQueue());
+        AddToRecheckQueueCommand = new RelayCommand<object?>(_ => _ = AddToRecheckQueueAsync());
+        TriggerSelectedTaskCommand = new RelayCommand<object?>(_ => _ = TriggerSelectedTaskAsync());
+        ToggleSelectedTaskEnabledCommand = new RelayCommand<object?>(_ => _ = ToggleSelectedTaskEnabledAsync());
         MarkDispatchedCommand = new RelayCommand<object?>(_ => _ = MarkDispatchedAsync());
         RunRecheckCommand = new RelayCommand<object?>(_ => _ = RunRecheckAsync());
         ClearRecoveredCommand = new RelayCommand<object?>(_ => _ = ClearRecoveredAsync());
@@ -81,6 +95,10 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
     public ObservableCollection<SelectionItemViewModel> FaultTypeOptions { get; }
 
     public ObservableCollection<FaultClosureRecord> Records { get; }
+
+    public ObservableCollection<RecheckTaskRecord> RecheckTasks { get; }
+
+    public ObservableCollection<RecheckExecutionRecord> SelectedTaskExecutions { get; }
 
     public DeviceMediaReviewViewModel MediaReview => _mediaReview;
 
@@ -137,7 +155,30 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
             }
 
             SyncMediaReviewContext();
+            SyncSelectedTaskFromRecord();
             RaiseSelectedRecordChanged();
+        }
+    }
+
+    public RecheckTaskRecord? SelectedRecheckTask
+    {
+        get => _selectedRecheckTask;
+        set
+        {
+            if (!SetProperty(ref _selectedRecheckTask, value))
+            {
+                return;
+            }
+
+            if (value is not null)
+            {
+                SelectedRecord = Records.FirstOrDefault(item =>
+                    string.Equals(item.RecordId, value.SourceFaultClosureId, StringComparison.OrdinalIgnoreCase))
+                    ?? SelectedRecord;
+            }
+
+            SyncSelectedTaskExecutions();
+            RaiseSelectedTaskChanged();
         }
     }
 
@@ -157,6 +198,12 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
     {
         get => _lastUpdatedText;
         private set => SetProperty(ref _lastUpdatedText, value);
+    }
+
+    public string RecheckQueueStatusText
+    {
+        get => _recheckQueueStatusText;
+        private set => SetProperty(ref _recheckQueueStatusText, value);
     }
 
     public string OperatorName
@@ -220,6 +267,9 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
             {
                 RaisePropertyChanged(nameof(CanMarkDispatched));
                 RaisePropertyChanged(nameof(CanRunRecheck));
+                RaisePropertyChanged(nameof(CanAddToRecheckQueue));
+                RaisePropertyChanged(nameof(CanTriggerSelectedTask));
+                RaisePropertyChanged(nameof(CanToggleSelectedTaskEnabled));
                 RaisePropertyChanged(nameof(CanClearRecovered));
                 RaisePropertyChanged(nameof(CanCloseRecord));
                 RaisePropertyChanged(nameof(CanCloseFalsePositive));
@@ -236,6 +286,22 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
     public bool CanMarkDispatched => !IsProcessingAction && SelectedRecord?.CanMarkDispatched == true;
 
     public bool CanRunRecheck => !IsProcessingAction && SelectedRecord?.CanRunRecheck == true;
+
+    public bool CanAddToRecheckQueue => !IsProcessingAction &&
+        SelectedRecord is not null &&
+        SelectedRecord.RequiresRecheck &&
+        string.Equals(SelectedRecord.CurrentStatus, FaultClosureStatuses.PendingRecheck, StringComparison.OrdinalIgnoreCase);
+
+    public bool HasSelectedTask => SelectedRecheckTask is not null;
+
+    public bool CanTriggerSelectedTask => !IsProcessingAction &&
+        SelectedRecheckTask is not null &&
+        !SelectedRecheckTask.IsTerminalTask &&
+        !SelectedRecheckTask.IsRunning;
+
+    public bool CanToggleSelectedTaskEnabled => !IsProcessingAction &&
+        SelectedRecheckTask is not null &&
+        !SelectedRecheckTask.IsTerminalTask;
 
     public bool CanClearRecovered => !IsProcessingAction && SelectedRecord?.CanClear == true;
 
@@ -283,6 +349,18 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
 
     public string SelectedLatestRecheckText => SelectedRecord?.LatestRecheckText ?? "未复检";
 
+    public string SelectedTaskStatusText => SelectedRecheckTask?.CurrentStatusText ?? "--";
+
+    public string SelectedTaskNextRunText => SelectedRecheckTask?.NextRunAtText ?? "--";
+
+    public string SelectedTaskRuleText => SelectedRecheckTask?.ScheduleRule.RuleSummaryText ?? "--";
+
+    public string SelectedTaskLatestResultText => SelectedRecheckTask?.LastExecutionSummaryText ?? "暂无执行结果";
+
+    public string SelectedTaskEnabledText => SelectedRecheckTask?.EnabledStatusText ?? "--";
+
+    public string ToggleTaskEnabledButtonText => SelectedRecheckTask?.IsEnabled == true ? "停用任务" : "启用任务";
+
     public string SelectedClearTrailText => SelectedRecord is not null && SelectedRecord.ClearRecords.Count > 0
         ? string.Join(" / ", SelectedRecord.ClearRecords
             .OrderByDescending(item => item.PerformedAt)
@@ -291,6 +369,14 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         : "未发生销警/关闭动作";
 
     public ICommand RefreshCommand { get; }
+
+    public ICommand RefreshRecheckQueueCommand { get; }
+
+    public ICommand AddToRecheckQueueCommand { get; }
+
+    public ICommand TriggerSelectedTaskCommand { get; }
+
+    public ICommand ToggleSelectedTaskEnabledCommand { get; }
 
     public ICommand MarkDispatchedCommand { get; }
 
@@ -337,6 +423,7 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
             SelectedRecord = !string.IsNullOrWhiteSpace(preferredRecordId)
                 ? Records.FirstOrDefault(item => string.Equals(item.RecordId, preferredRecordId, StringComparison.OrdinalIgnoreCase))
                 : Records.FirstOrDefault();
+            RefreshRecheckQueue(SelectedRecheckTask?.TaskId);
         }
         catch (Exception ex)
         {
@@ -359,6 +446,55 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         await ExecuteActionAsync(
             () => _faultClosureService.MarkDispatched(SelectedRecord.RecordId, OperatorName, ActionNote),
             "正在标记已派单...");
+    }
+
+    private void OnFaultClosureOverviewChanged(object? sender, EventArgs e)
+    {
+        Application.Current.Dispatcher.BeginInvoke(new Action(() => _ = RefreshAsync(preserveSelection: true)));
+    }
+
+    private void OnRecheckOverviewChanged(object? sender, EventArgs e)
+    {
+        Application.Current.Dispatcher.BeginInvoke(new Action(() => RefreshRecheckQueue()));
+    }
+
+    private async Task AddToRecheckQueueAsync()
+    {
+        if (SelectedRecord is null)
+        {
+            return;
+        }
+
+        await ExecuteTaskActionAsync(
+            () => _recheckSchedulerService.EnsureTask(SelectedRecord, OperatorName),
+            "正在加入本地复检队列...");
+    }
+
+    private async Task TriggerSelectedTaskAsync()
+    {
+        if (SelectedRecheckTask is null)
+        {
+            return;
+        }
+
+        await ExecuteTaskActionAsync(
+            () => _recheckSchedulerService.TriggerTaskNow(SelectedRecheckTask.TaskId, OperatorName),
+            "正在手动执行复检任务...");
+    }
+
+    private async Task ToggleSelectedTaskEnabledAsync()
+    {
+        if (SelectedRecheckTask is null)
+        {
+            return;
+        }
+
+        await ExecuteTaskActionAsync(
+            () => _recheckSchedulerService.SetTaskEnabled(
+                SelectedRecheckTask.TaskId,
+                !SelectedRecheckTask.IsEnabled,
+                OperatorName),
+            SelectedRecheckTask.IsEnabled ? "正在停用复检任务..." : "正在启用复检任务...");
     }
 
     private async Task RunRecheckAsync()
@@ -441,6 +577,91 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         }
     }
 
+    private async Task ExecuteTaskActionAsync(Func<RecheckTaskRecord> action, string busyText)
+    {
+        if (IsProcessingAction)
+        {
+            return;
+        }
+
+        var preferredTaskId = SelectedRecheckTask?.TaskId;
+        IsProcessingAction = true;
+        WarningText = string.Empty;
+        RecheckQueueStatusText = busyText;
+
+        try
+        {
+            await Task.Run(action);
+            RefreshRecheckQueue(preferredTaskId);
+            await RefreshAsync(preserveSelection: true);
+        }
+        catch (Exception ex)
+        {
+            WarningText = ex.Message;
+            RecheckQueueStatusText = $"{busyText}失败。";
+        }
+        finally
+        {
+            IsProcessingAction = false;
+        }
+    }
+
+    private void RefreshRecheckQueue(string? preferredTaskId = null)
+    {
+        try
+        {
+            var overview = _recheckSchedulerService.GetOverview();
+            ReplaceCollection(RecheckTasks, overview.Tasks);
+            RecheckQueueStatusText = overview.StatusMessage;
+
+            SelectedRecheckTask = !string.IsNullOrWhiteSpace(preferredTaskId)
+                ? RecheckTasks.FirstOrDefault(item => string.Equals(item.TaskId, preferredTaskId, StringComparison.OrdinalIgnoreCase))
+                : ResolvePreferredTask();
+        }
+        catch (Exception ex)
+        {
+            RecheckQueueStatusText = ex.Message;
+        }
+    }
+
+    private RecheckTaskRecord? ResolvePreferredTask()
+    {
+        if (SelectedRecord is not null)
+        {
+            var byRecord = RecheckTasks.FirstOrDefault(item =>
+                string.Equals(item.SourceFaultClosureId, SelectedRecord.RecordId, StringComparison.OrdinalIgnoreCase));
+            if (byRecord is not null)
+            {
+                return byRecord;
+            }
+        }
+
+        return RecheckTasks.FirstOrDefault();
+    }
+
+    private void SyncSelectedTaskFromRecord()
+    {
+        if (SelectedRecord is null)
+        {
+            return;
+        }
+
+        SelectedRecheckTask = RecheckTasks.FirstOrDefault(item =>
+            string.Equals(item.SourceFaultClosureId, SelectedRecord.RecordId, StringComparison.OrdinalIgnoreCase))
+            ?? SelectedRecheckTask;
+    }
+
+    private void SyncSelectedTaskExecutions()
+    {
+        var overview = _recheckSchedulerService.GetOverview();
+        ReplaceCollection(
+            SelectedTaskExecutions,
+            overview.RecentExecutions
+                .Where(item => SelectedRecheckTask is not null &&
+                               string.Equals(item.TaskId, SelectedRecheckTask.TaskId, StringComparison.OrdinalIgnoreCase))
+                .Take(12));
+    }
+
     private void ResetActionDraft()
     {
         OperatorName = ResolveDefaultOperator();
@@ -517,6 +738,7 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         RaisePropertyChanged(nameof(HasSelectedImage));
         RaisePropertyChanged(nameof(CanMarkDispatched));
         RaisePropertyChanged(nameof(CanRunRecheck));
+        RaisePropertyChanged(nameof(CanAddToRecheckQueue));
         RaisePropertyChanged(nameof(CanClearRecovered));
         RaisePropertyChanged(nameof(CanCloseRecord));
         RaisePropertyChanged(nameof(CanCloseFalsePositive));
@@ -541,6 +763,19 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         RaisePropertyChanged(nameof(SelectedDispatchDispatchedText));
         RaisePropertyChanged(nameof(SelectedLatestRecheckText));
         RaisePropertyChanged(nameof(SelectedClearTrailText));
+    }
+
+    private void RaiseSelectedTaskChanged()
+    {
+        RaisePropertyChanged(nameof(HasSelectedTask));
+        RaisePropertyChanged(nameof(CanTriggerSelectedTask));
+        RaisePropertyChanged(nameof(CanToggleSelectedTaskEnabled));
+        RaisePropertyChanged(nameof(SelectedTaskStatusText));
+        RaisePropertyChanged(nameof(SelectedTaskNextRunText));
+        RaisePropertyChanged(nameof(SelectedTaskRuleText));
+        RaisePropertyChanged(nameof(SelectedTaskLatestResultText));
+        RaisePropertyChanged(nameof(SelectedTaskEnabledText));
+        RaisePropertyChanged(nameof(ToggleTaskEnabledButtonText));
     }
 
     private static IEnumerable<SelectionItemViewModel> BuildStatusOptions()

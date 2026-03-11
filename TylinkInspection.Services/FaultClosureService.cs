@@ -17,6 +17,8 @@ public sealed class FaultClosureService : IFaultClosureService
     private readonly IDeviceInspectionService _deviceInspectionService;
     private readonly object _syncRoot = new();
 
+    public event EventHandler? OverviewChanged;
+
     public FaultClosureService(
         IFaultClosureStore store,
         IManualReviewStore manualReviewStore,
@@ -80,19 +82,23 @@ public sealed class FaultClosureService : IFaultClosureService
     {
         ArgumentNullException.ThrowIfNull(review);
 
+        FaultClosureRecord updated;
         lock (_syncRoot)
         {
             var records = LoadAndSynchronize();
             var context = BuildManualReviewContext();
-            var updated = UpsertManualReviewCore(records, review, context, forceApply: true);
+            updated = UpsertManualReviewCore(records, review, context, forceApply: true);
             SaveRecords(records);
             UpdateAiWorkflow(updated);
-            return updated;
         }
+
+        NotifyOverviewChanged();
+        return updated;
     }
 
     public FaultClosureRecord MarkDispatched(string recordId, string operatorName, string noteText)
     {
+        FaultClosureRecord updated;
         lock (_syncRoot)
         {
             var records = LoadAndSynchronize();
@@ -103,7 +109,7 @@ public sealed class FaultClosureService : IFaultClosureService
             }
 
             var updatedAt = DateTimeOffset.Now;
-            var updated = BuildRecordWithDispatch(
+            updated = BuildRecordWithDispatch(
                 record,
                 FaultClosureStateMachine.ResolveAfterDispatch(),
                 NormalizeOperator(operatorName),
@@ -113,12 +119,15 @@ public sealed class FaultClosureService : IFaultClosureService
             ReplaceRecord(records, updated);
             SaveRecords(records);
             UpdateAiWorkflow(updated);
-            return updated;
         }
+
+        NotifyOverviewChanged();
+        return updated;
     }
 
     public FaultClosureRecord RunRecheck(string recordId, string operatorName)
     {
+        FaultClosureRecord updated;
         lock (_syncRoot)
         {
             var records = LoadAndSynchronize();
@@ -148,7 +157,7 @@ public sealed class FaultClosureService : IFaultClosureService
             };
 
             var updatedStatus = FaultClosureStateMachine.ResolveAfterRecheck(passed);
-            var updated = BuildRecordWithRecheck(
+            updated = BuildRecordWithRecheck(
                 record,
                 recheck,
                 updatedStatus,
@@ -161,12 +170,15 @@ public sealed class FaultClosureService : IFaultClosureService
             ReplaceRecord(records, updated);
             SaveRecords(records);
             UpdateAiWorkflow(updated);
-            return updated;
         }
+
+        NotifyOverviewChanged();
+        return updated;
     }
 
     public FaultClosureRecord ClearRecovered(string recordId, string operatorName, string noteText)
     {
+        FaultClosureRecord updated;
         lock (_syncRoot)
         {
             var records = LoadAndSynchronize();
@@ -176,7 +188,7 @@ public sealed class FaultClosureService : IFaultClosureService
                 throw new InvalidOperationException("当前记录尚未达到待销警状态。");
             }
 
-            var updated = BuildRecordWithClear(
+            updated = BuildRecordWithClear(
                 record,
                 FaultClosureStatuses.Cleared,
                 FaultClearActionTypes.ClearAlarm,
@@ -187,12 +199,15 @@ public sealed class FaultClosureService : IFaultClosureService
             ReplaceRecord(records, updated);
             SaveRecords(records);
             UpdateAiWorkflow(updated);
-            return updated;
         }
+
+        NotifyOverviewChanged();
+        return updated;
     }
 
     public FaultClosureRecord CloseRecord(string recordId, string operatorName, string noteText)
     {
+        FaultClosureRecord updated;
         lock (_syncRoot)
         {
             var records = LoadAndSynchronize();
@@ -202,7 +217,7 @@ public sealed class FaultClosureService : IFaultClosureService
                 throw new InvalidOperationException("当前记录已处于终态，无需重复关闭。");
             }
 
-            var updated = BuildRecordWithClear(
+            updated = BuildRecordWithClear(
                 record,
                 FaultClosureStatuses.Closed,
                 FaultClearActionTypes.Close,
@@ -213,12 +228,15 @@ public sealed class FaultClosureService : IFaultClosureService
             ReplaceRecord(records, updated);
             SaveRecords(records);
             UpdateAiWorkflow(updated);
-            return updated;
         }
+
+        NotifyOverviewChanged();
+        return updated;
     }
 
     public FaultClosureRecord CloseAsFalsePositive(string recordId, string operatorName, string noteText)
     {
+        FaultClosureRecord updated;
         lock (_syncRoot)
         {
             var records = LoadAndSynchronize();
@@ -228,7 +246,7 @@ public sealed class FaultClosureService : IFaultClosureService
                 throw new InvalidOperationException("当前记录已处于终态，无需重复处理。");
             }
 
-            var updated = BuildRecordWithClear(
+            updated = BuildRecordWithClear(
                 record,
                 FaultClosureStatuses.FalsePositiveClosed,
                 FaultClearActionTypes.FalsePositiveClose,
@@ -239,8 +257,10 @@ public sealed class FaultClosureService : IFaultClosureService
             ReplaceRecord(records, updated);
             SaveRecords(records);
             UpdateAiWorkflow(updated);
-            return updated;
         }
+
+        NotifyOverviewChanged();
+        return updated;
     }
 
     private List<FaultClosureRecord> LoadAndSynchronize()
@@ -917,6 +937,11 @@ public sealed class FaultClosureService : IFaultClosureService
             .OrderBy(item => item.DeviceCode, StringComparer.OrdinalIgnoreCase)
             .ThenByDescending(item => item.UpdatedAt)
             .ToList());
+    }
+
+    private void NotifyOverviewChanged()
+    {
+        OverviewChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private static bool IsAbnormalConclusion(string? conclusion)

@@ -50,6 +50,23 @@
             box-shadow: 0 0 0 1px rgba(8, 18, 27, 0.85), 0 0 0 3px rgba(255, 91, 115, 0.24), 0 0 14px rgba(255, 91, 115, 0.42);
         }
 
+        .marker.pending-dispatch {
+            box-shadow: 0 0 0 1px rgba(8, 18, 27, 0.85), 0 0 0 3px rgba(255, 138, 76, 0.28), 0 0 14px rgba(255, 138, 76, 0.48);
+        }
+
+        .marker.pending-recheck {
+            box-shadow: 0 0 0 1px rgba(8, 18, 27, 0.85), 0 0 0 4px rgba(255, 91, 123, 0.28), 0 0 18px rgba(255, 91, 123, 0.56);
+        }
+
+        .marker.pending-clear {
+            box-shadow: 0 0 0 1px rgba(8, 18, 27, 0.85), 0 0 0 4px rgba(158, 123, 255, 0.26), 0 0 18px rgba(158, 123, 255, 0.48);
+        }
+
+        .marker.false-positive {
+            opacity: 0.35;
+            filter: grayscale(0.45);
+        }
+
         .marker.focus::after {
             content: "";
             position: absolute;
@@ -131,6 +148,18 @@
                     parts.push("recheck");
                 }
 
+                if (point.isPendingDispatch) {
+                    parts.push("pending-dispatch");
+                } else if (point.isPendingRecheck) {
+                    parts.push("pending-recheck");
+                } else if (point.isPendingClear) {
+                    parts.push("pending-clear");
+                }
+
+                if (point.isFalsePositiveClosed) {
+                    parts.push("false-positive");
+                }
+
                 if (state.selectedDevice && state.selectedDevice === point.deviceCode) {
                     parts.push("selected");
                 }
@@ -149,6 +178,14 @@
 
                 if (point.needRecheck) {
                     status.push("需复检");
+                }
+
+                if (point.closureStatusText) {
+                    status.push(`闭环:${point.closureStatusText}`);
+                }
+
+                if (point.closurePendingFlagsText && point.closurePendingFlagsText !== "未进入闭环") {
+                    status.push(point.closurePendingFlagsText);
                 }
 
                 return `${point.deviceName} (${status.join(" / ")})`;

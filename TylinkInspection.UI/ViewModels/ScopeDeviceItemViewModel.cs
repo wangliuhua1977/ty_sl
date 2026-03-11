@@ -14,6 +14,7 @@ public sealed class ScopeDeviceItemViewModel : ObservableObject
         bool isInCurrentScope,
         bool isFocused,
         DeviceInspectionResult? latestInspection,
+        FaultClosureLinkageSummary closureSummary,
         bool hasCoordinate,
         double? longitude,
         double? latitude,
@@ -27,6 +28,7 @@ public sealed class ScopeDeviceItemViewModel : ObservableObject
         IsInCurrentScope = isInCurrentScope;
         IsFocused = isFocused;
         LatestInspection = latestInspection;
+        ClosureSummary = closureSummary;
         HasCoordinate = hasCoordinate;
         Longitude = longitude;
         Latitude = latitude;
@@ -44,6 +46,8 @@ public sealed class ScopeDeviceItemViewModel : ObservableObject
     public bool IsFocused { get; }
 
     public DeviceInspectionResult? LatestInspection { get; }
+
+    public FaultClosureLinkageSummary ClosureSummary { get; }
 
     public bool HasCoordinate { get; }
 
@@ -128,6 +132,32 @@ public sealed class ScopeDeviceItemViewModel : ObservableObject
     public bool NeedRecheck => LatestInspection?.NeedRecheck == true;
 
     public string RecheckBadgeText => NeedRecheck ? "需复检" : "稳定";
+
+    public bool HasClosureRecord => ClosureSummary.HasRecord;
+
+    public string ClosureStatusText => ClosureSummary.CurrentStatusText;
+
+    public string ClosurePendingFlagsText => ClosureSummary.PendingFlagsText;
+
+    public string ClosureReviewConclusionText => ClosureSummary.ReviewConclusionText;
+
+    public string ClosureLatestRecheckText => ClosureSummary.LatestRecheckText;
+
+    public string ClosureAccentResourceKey => ClosureSummary.AccentResourceKey;
+
+    public bool IsPendingDispatch => ClosureSummary.IsPendingDispatch;
+
+    public bool IsPendingRecheck => ClosureSummary.IsPendingRecheck;
+
+    public bool IsPendingClear => ClosureSummary.IsPendingClear;
+
+    public bool IsFalsePositiveClosed => ClosureSummary.IsFalsePositiveClosed;
+
+    public string ClosurePendingDispatchText => ClosureSummary.PendingDispatchText;
+
+    public string ClosurePendingRecheckText => ClosureSummary.PendingRecheckText;
+
+    public string ClosurePendingClearText => ClosureSummary.PendingClearText;
 
     public string CoordinateText => HasCoordinate && Longitude.HasValue && Latitude.HasValue
         ? $"{Longitude.Value:F6} / {Latitude.Value:F6}"

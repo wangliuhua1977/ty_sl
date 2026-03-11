@@ -4,6 +4,8 @@ namespace TylinkInspection.Core.Contracts;
 
 public interface IFaultClosureService
 {
+    event EventHandler? OverviewChanged;
+
     FaultClosureOverview GetOverview(FaultClosureQuery query);
 
     FaultClosureRecord UpsertFromManualReview(ManualReviewRecord review);

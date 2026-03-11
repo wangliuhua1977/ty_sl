@@ -18,20 +18,25 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
     private readonly IDeviceInspectionService _deviceInspectionService;
     private readonly IInspectionScopeService _inspectionScopeService;
     private readonly IInspectionSelectionService _inspectionSelectionService;
+    private readonly IFaultClosureService _faultClosureService;
     private readonly DeviceMediaReviewViewModel _mediaReview;
     private readonly HashSet<string> _draftIncludedDeviceCodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _draftExcludedDeviceCodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _draftFocusedDeviceCodes = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly IReadOnlyDictionary<string, FaultClosureLinkageSummary> EmptyClosureLookup =
+        new Dictionary<string, FaultClosureLinkageSummary>(StringComparer.OrdinalIgnoreCase);
 
     private InspectionScopeResult? _scopeResult;
     private IReadOnlyList<DirectoryNode> _catalogDirectoryTree = Array.Empty<DirectoryNode>();
     private IReadOnlyList<DeviceDirectoryItem> _catalogDevices = Array.Empty<DeviceDirectoryItem>();
     private IReadOnlyList<DeviceDirectoryItem> _filteredDevices = Array.Empty<DeviceDirectoryItem>();
+    private IReadOnlyDictionary<string, FaultClosureLinkageSummary> _closureLookup = EmptyClosureLookup;
     private InspectionDirectoryNodeViewModel? _selectedDirectory;
     private ScopeDeviceItemViewModel? _selectedDevice;
     private DevicePointProfile? _selectedDeviceProfile;
     private DeviceInspectionResult? _selectedInspectionResult;
     private InspectionScopeSchemeOptionViewModel? _selectedScheme;
+    private SelectionItemViewModel? _selectedClosureFilter;
     private string _treeStatusText = "正在准备巡检范围目录视图。";
     private string _treeErrorText = string.Empty;
     private string _listStatusText = "正在准备点位列表。";
@@ -64,6 +69,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         IDeviceInspectionService deviceInspectionService,
         IInspectionScopeService inspectionScopeService,
         IInspectionSelectionService inspectionSelectionService,
+        IFaultClosureService faultClosureService,
         IPlaybackReviewService playbackReviewService,
         IScreenshotSamplingService screenshotSamplingService,
         ICloudPlaybackService cloudPlaybackService)
@@ -75,15 +81,19 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         _deviceInspectionService = deviceInspectionService;
         _inspectionScopeService = inspectionScopeService;
         _inspectionSelectionService = inspectionSelectionService;
+        _faultClosureService = faultClosureService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
         _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
+        _faultClosureService.OverviewChanged += OnFaultClosureChanged;
 
         SummaryCards = new ObservableCollection<OverviewMetric>();
         DirectoryNodes = new ObservableCollection<InspectionDirectoryNodeViewModel>();
         DeviceItems = new ObservableCollection<ScopeDeviceItemViewModel>();
         SchemeOptions = new ObservableCollection<InspectionScopeSchemeOptionViewModel>();
+        ClosureFilterItems = new ObservableCollection<SelectionItemViewModel>(BuildClosureFilterItems());
         EditorDirectoryNodes = new ObservableCollection<InspectionDirectoryNodeViewModel>();
+        _selectedClosureFilter = ClosureFilterItems.FirstOrDefault();
 
         RefreshDirectoryCommand = new RelayCommand<object?>(_ => _ = ForceRefreshScopeAsync());
         ShowDirectoryDevicesCommand = new RelayCommand<object?>(_ => ShowCurrentSchemeDevices());
@@ -91,6 +101,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         RefreshListCommand = new RelayCommand<object?>(_ => RefreshCurrentList());
         NextPageCommand = new RelayCommand<object?>(_ => MoveToNextPage());
         PreviousPageCommand = new RelayCommand<object?>(_ => MoveToPreviousPage());
+        SelectClosureFilterCommand = new RelayCommand<SelectionItemViewModel>(item => SelectClosureFilter(item));
         RefreshDetailCommand = new RelayCommand<object?>(_ => _ = LoadSelectedDeviceProfileAsync(forceRefresh: true));
         ExecuteInspectionCommand = new RelayCommand<object?>(_ => _ = ExecuteInspectionAsync());
         ReserveInspectionEntryCommand = new RelayCommand<object?>(_ => ReserveInspectionEntry());
@@ -111,6 +122,8 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
     public ObservableCollection<ScopeDeviceItemViewModel> DeviceItems { get; }
 
     public ObservableCollection<InspectionScopeSchemeOptionViewModel> SchemeOptions { get; }
+
+    public ObservableCollection<SelectionItemViewModel> ClosureFilterItems { get; }
 
     public ObservableCollection<InspectionDirectoryNodeViewModel> EditorDirectoryNodes { get; }
 
@@ -150,6 +163,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
 
                 RaisePropertyChanged(nameof(HasSelectedDevice));
                 RaisePropertyChanged(nameof(CanInspectSelectedDevice));
+                RaiseClosureDetailChanged();
                 PublishSelectedDevice();
             }
         }
@@ -197,6 +211,12 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
                 _ = SwitchSchemeAsync(value.Id);
             }
         }
+    }
+
+    public SelectionItemViewModel? SelectedClosureFilter
+    {
+        get => _selectedClosureFilter;
+        private set => SetProperty(ref _selectedClosureFilter, value);
     }
 
     public string TreeStatusText
@@ -370,6 +390,24 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         ? "新建巡检范围方案"
         : "编辑巡检范围方案";
 
+    public string CurrentClosureFilterText => SelectedClosureFilter?.Title ?? "全部闭环";
+
+    public string SelectedClosureStatusText => SelectedDevice?.ClosureStatusText ?? "未进入闭环";
+
+    public string SelectedClosureReviewConclusionText => SelectedDevice?.ClosureReviewConclusionText ?? "--";
+
+    public string SelectedClosureLatestRecheckText => SelectedDevice?.ClosureLatestRecheckText ?? "未复检";
+
+    public string SelectedClosurePendingDispatchText => SelectedDevice?.ClosurePendingDispatchText ?? "否";
+
+    public string SelectedClosurePendingRecheckText => SelectedDevice?.ClosurePendingRecheckText ?? "否";
+
+    public string SelectedClosurePendingClearText => SelectedDevice?.ClosurePendingClearText ?? "否";
+
+    public string SelectedClosurePendingFlagsText => SelectedDevice?.ClosurePendingFlagsText ?? "未进入闭环";
+
+    public string SelectedClosureAccentResourceKey => SelectedDevice?.ClosureAccentResourceKey ?? "ToneInfoBrush";
+
     public ICommand RefreshDirectoryCommand { get; }
 
     public ICommand ShowDirectoryDevicesCommand { get; }
@@ -381,6 +419,8 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
     public ICommand NextPageCommand { get; }
 
     public ICommand PreviousPageCommand { get; }
+
+    public ICommand SelectClosureFilterCommand { get; }
 
     public ICommand RefreshDetailCommand { get; }
 
@@ -426,6 +466,11 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         }));
     }
 
+    private void OnFaultClosureChanged(object? sender, EventArgs e)
+    {
+        Application.Current.Dispatcher.BeginInvoke(new Action(RefreshFaultClosurePresentation));
+    }
+
     private async Task ReloadScopeDataAsync(bool preserveSelection)
     {
         var preferredDirectoryId = preserveSelection ? SelectedDirectory?.Id : null;
@@ -444,8 +489,9 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
             var schemes = await Task.Run(() => _inspectionScopeService.GetSchemes());
             var fullTree = await Task.Run(() => _deviceCatalogService.GetCachedDirectoryTree());
             var fullDevices = await Task.Run(() => _deviceCatalogService.GetCachedDevices());
+            var closureOverview = await Task.Run(() => _faultClosureService.GetOverview(new FaultClosureQuery()));
 
-            ApplyScopeState(scopeResult, schemes, fullTree, fullDevices, preferredDirectoryId, preferredDeviceCode);
+            ApplyScopeState(scopeResult, schemes, fullTree, fullDevices, closureOverview, preferredDirectoryId, preferredDeviceCode);
         }
         catch (Exception ex)
         {
@@ -467,10 +513,12 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         IReadOnlyList<InspectionScopeScheme> schemes,
         IReadOnlyList<DirectoryNode> fullTree,
         IReadOnlyList<DeviceDirectoryItem> fullDevices,
+        FaultClosureOverview closureOverview,
         string? preferredDirectoryId,
         string? preferredDeviceCode)
     {
         _scopeResult = scopeResult;
+        _closureLookup = FaultClosureLinkageSummary.BuildLookup(closureOverview.Records);
         _catalogDirectoryTree = fullTree;
         _catalogDevices = fullDevices
             .Where(item => !string.IsNullOrWhiteSpace(item.DeviceCode))
@@ -497,6 +545,15 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         RaisePropertyChanged(nameof(SelectedDirectoryPathText));
         RaisePropertyChanged(nameof(PageSummaryText));
         RaisePropertyChanged(nameof(EditorTitleText));
+    }
+
+    private void RefreshFaultClosurePresentation()
+    {
+        var overview = _faultClosureService.GetOverview(new FaultClosureQuery());
+        _closureLookup = FaultClosureLinkageSummary.BuildLookup(overview.Records);
+        RebuildDevicePage(SelectedDevice?.DeviceCode);
+        RebuildSummary();
+        RaiseClosureDetailChanged();
     }
 
     private void UpdateSchemeOptions(IReadOnlyList<InspectionScopeScheme> schemes, string currentSchemeId)
@@ -557,6 +614,8 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
             _filteredDevices = sourceDevices.ToList();
         }
 
+        _filteredDevices = ApplyClosureFilter(_filteredDevices).ToList();
+
         var maxPageIndex = _filteredDevices.Count == 0
             ? 0
             : Math.Max(0, (_filteredDevices.Count - 1) / PageSize);
@@ -573,6 +632,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
                     isInCurrentScope: scopeDevice is not null,
                     isFocused: scopeDevice?.IsFocused ?? false,
                     latestInspection: scopeDevice?.LatestInspection,
+                    closureSummary: ResolveClosureSummary(device.DeviceCode),
                     hasCoordinate: scopeDevice?.HasCoordinate ?? HasCoordinate(device),
                     longitude: scopeDevice?.Longitude ?? TryParseCoordinate(device.Longitude),
                     latitude: scopeDevice?.Latitude ?? TryParseCoordinate(device.Latitude),
@@ -595,6 +655,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         RaisePropertyChanged(nameof(PageSummaryText));
         RaisePropertyChanged(nameof(HasNextPage));
         RaisePropertyChanged(nameof(HasPreviousPage));
+        RaiseClosureDetailChanged();
     }
 
     private async Task ForceRefreshScopeAsync()
@@ -677,6 +738,26 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
 
         _pageIndex--;
         RebuildDevicePage(SelectedDevice?.DeviceCode);
+    }
+
+    private void SelectClosureFilter(SelectionItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        foreach (var option in ClosureFilterItems)
+        {
+            option.IsSelected = ReferenceEquals(option, item);
+        }
+
+        SelectedClosureFilter = item;
+        _pageIndex = 0;
+        RebuildDevicePage(SelectedDevice?.DeviceCode);
+        RebuildSummary();
+        RaisePropertyChanged(nameof(CurrentClosureFilterText));
+        RaisePropertyChanged(nameof(PageSummaryText));
     }
 
     private async Task SwitchSchemeAsync(string schemeId)
@@ -1078,6 +1159,59 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
                 BuildMetric("坐标完备", (summary?.WithCoordinatePointCount ?? 0).ToString(), "点位", $"缺失 {summary?.WithoutCoordinatePointCount ?? 0}", "ToneInfoBrush"),
                 BuildMetric("重点关注", (summary?.FocusPointCount ?? 0).ToString(), "点位", $"当前页 {currentPageFocusCount} 个", "ToneWarningBrush")
             ]);
+    }
+
+    private FaultClosureLinkageSummary ResolveClosureSummary(string? deviceCode)
+    {
+        if (string.IsNullOrWhiteSpace(deviceCode))
+        {
+            return FaultClosureLinkageSummary.Empty;
+        }
+
+        return _closureLookup.TryGetValue(deviceCode, out var summary)
+            ? summary
+            : FaultClosureLinkageSummary.Empty;
+    }
+
+    private IEnumerable<DeviceDirectoryItem> ApplyClosureFilter(IEnumerable<DeviceDirectoryItem> devices)
+    {
+        return devices.Where(device =>
+        {
+            var summary = ResolveClosureSummary(device.DeviceCode);
+            return SelectedClosureFilter?.Key switch
+            {
+                "PendingDispatch" => summary.IsPendingDispatch,
+                "PendingRecheck" => summary.IsPendingRecheck,
+                "PendingClear" => summary.IsPendingClear,
+                "FalsePositiveClosed" => summary.IsFalsePositiveClosed,
+                _ => true
+            };
+        });
+    }
+
+    private void RaiseClosureDetailChanged()
+    {
+        RaisePropertyChanged(nameof(CurrentClosureFilterText));
+        RaisePropertyChanged(nameof(SelectedClosureStatusText));
+        RaisePropertyChanged(nameof(SelectedClosureReviewConclusionText));
+        RaisePropertyChanged(nameof(SelectedClosureLatestRecheckText));
+        RaisePropertyChanged(nameof(SelectedClosurePendingDispatchText));
+        RaisePropertyChanged(nameof(SelectedClosurePendingRecheckText));
+        RaisePropertyChanged(nameof(SelectedClosurePendingClearText));
+        RaisePropertyChanged(nameof(SelectedClosurePendingFlagsText));
+        RaisePropertyChanged(nameof(SelectedClosureAccentResourceKey));
+    }
+
+    private static IEnumerable<SelectionItemViewModel> BuildClosureFilterItems()
+    {
+        return
+        [
+            new SelectionItemViewModel { Key = string.Empty, Title = "全部闭环", IsSelected = true },
+            new SelectionItemViewModel { Key = "PendingDispatch", Title = "仅看待派单" },
+            new SelectionItemViewModel { Key = "PendingRecheck", Title = "仅看待复检" },
+            new SelectionItemViewModel { Key = "PendingClear", Title = "仅看待销警" },
+            new SelectionItemViewModel { Key = "FalsePositiveClosed", Title = "仅看误报关闭" }
+        ];
     }
 
     private static bool HasCoordinate(DeviceDirectoryItem device)

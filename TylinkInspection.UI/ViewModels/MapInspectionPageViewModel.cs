@@ -10,13 +10,19 @@ namespace TylinkInspection.UI.ViewModels;
 
 public sealed class MapInspectionPageViewModel : PageViewModelBase
 {
+    private static readonly IReadOnlyDictionary<string, FaultClosureLinkageSummary> EmptyClosureLookup =
+        new Dictionary<string, FaultClosureLinkageSummary>(StringComparer.OrdinalIgnoreCase);
+
     private readonly IInspectionScopeService _inspectionScopeService;
     private readonly IDeviceInspectionService _deviceInspectionService;
     private readonly IManualCoordinateService _manualCoordinateService;
     private readonly IInspectionSelectionService _inspectionSelectionService;
+    private readonly IFaultClosureService _faultClosureService;
     private readonly DeviceMediaReviewViewModel _mediaReview;
 
     private InspectionScopeResult? _scopeResult;
+    private IReadOnlyDictionary<string, FaultClosureLinkageSummary> _closureLookup = EmptyClosureLookup;
+    private FaultClosureLinkageSummary _selectedClosureSummary = FaultClosureLinkageSummary.Empty;
     private DeviceInspectionResult? _selectedInspectionResult;
     private SelectionItemViewModel? _selectedScheme;
     private SelectionItemViewModel? _selectedTaskType;
@@ -49,6 +55,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         IDeviceInspectionService deviceInspectionService,
         IManualCoordinateService manualCoordinateService,
         IInspectionSelectionService inspectionSelectionService,
+        IFaultClosureService faultClosureService,
         IPlaybackReviewService playbackReviewService,
         IScreenshotSamplingService screenshotSamplingService,
         ICloudPlaybackService cloudPlaybackService,
@@ -59,11 +66,13 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         _deviceInspectionService = deviceInspectionService;
         _manualCoordinateService = manualCoordinateService;
         _inspectionSelectionService = inspectionSelectionService;
+        _faultClosureService = faultClosureService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         MapOptions = mapOptions;
 
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
         _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
+        _faultClosureService.OverviewChanged += OnFaultClosureChanged;
 
         SchemeItems = new ObservableCollection<SelectionItemViewModel>();
         TaskTypeItems = new ObservableCollection<SelectionItemViewModel>
@@ -75,7 +84,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
 
         OverviewMetrics = new ObservableCollection<OverviewMetric>();
         AlertItems = new ObservableCollection<AlertItem>(workspace.AlertItems);
-        MapPoints = new ObservableCollection<InspectionScopeMapPoint>();
+        MapPoints = new ObservableCollection<MapInspectionMarkerViewModel>();
         MissingCoordinateItems = new ObservableCollection<SelectionItemViewModel>();
 
         CurrentTask = workspace.CurrentTask;
@@ -112,7 +121,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
 
     public ObservableCollection<AlertItem> AlertItems { get; }
 
-    public ObservableCollection<InspectionScopeMapPoint> MapPoints { get; }
+    public ObservableCollection<MapInspectionMarkerViewModel> MapPoints { get; }
 
     public ObservableCollection<SelectionItemViewModel> MissingCoordinateItems { get; }
 
@@ -181,6 +190,16 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         get => _selectedCoordinateRemarkText;
         private set => SetProperty(ref _selectedCoordinateRemarkText, value);
     }
+
+    public string SelectedClosureStatusText => _selectedClosureSummary.CurrentStatusText;
+
+    public string SelectedClosureReviewConclusionText => _selectedClosureSummary.ReviewConclusionText;
+
+    public string SelectedClosureLatestRecheckText => _selectedClosureSummary.LatestRecheckText;
+
+    public string SelectedClosurePendingFlagsText => _selectedClosureSummary.PendingFlagsText;
+
+    public string SelectedClosureStatusAccentResourceKey => _selectedClosureSummary.AccentResourceKey;
 
     public string EditorLongitude
     {
@@ -331,6 +350,11 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         }));
     }
 
+    private void OnFaultClosureChanged(object? sender, EventArgs e)
+    {
+        Application.Current.Dispatcher.BeginInvoke(new Action(RefreshFaultClosurePresentation));
+    }
+
     private void RefreshScopePresentation()
     {
         var scopeResult = _inspectionScopeService.GetCurrentScope();
@@ -364,7 +388,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
                 BuildMetric("重点关注", scopeResult.Summary.FocusPointCount.ToString(), "个", "地图与点位治理共用口径", "ToneFocusBrush")
             ]);
 
-        ReplaceCollection(MapPoints, scopeResult.MapPoints);
+        RefreshFaultClosurePresentation();
         ReplaceCollection(
             MissingCoordinateItems,
             scopeResult.MapPoints
@@ -388,6 +412,44 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         {
             ClearSelectedPoint(syncSelection: false);
         }
+    }
+
+    private void RefreshFaultClosurePresentation()
+    {
+        if (_scopeResult is null)
+        {
+            _closureLookup = EmptyClosureLookup;
+            ReplaceCollection(MapPoints, Array.Empty<MapInspectionMarkerViewModel>());
+            UpdateSelectedClosureSummary(null);
+            return;
+        }
+
+        var overview = _faultClosureService.GetOverview(new FaultClosureQuery());
+        _closureLookup = FaultClosureLinkageSummary.BuildLookup(overview.Records);
+
+        ReplaceCollection(
+            MapPoints,
+            _scopeResult.MapPoints.Select(point => BuildMapMarker(point, ResolveClosureSummary(point.DeviceCode))));
+
+        UpdateSelectedClosureSummary(HasSelectedPoint ? SelectedPointDeviceCode : null);
+    }
+
+    private FaultClosureLinkageSummary ResolveClosureSummary(string? deviceCode)
+    {
+        if (string.IsNullOrWhiteSpace(deviceCode))
+        {
+            return FaultClosureLinkageSummary.Empty;
+        }
+
+        return _closureLookup.TryGetValue(deviceCode, out var summary)
+            ? summary
+            : FaultClosureLinkageSummary.Empty;
+    }
+
+    private void UpdateSelectedClosureSummary(string? deviceCode)
+    {
+        _selectedClosureSummary = ResolveClosureSummary(deviceCode);
+        RaiseSelectedClosureChanged();
     }
 
     private async Task SelectSchemeAsync(SelectionItemViewModel? item)
@@ -610,6 +672,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
             ? SelectedInspectionResult.HasFailureReason ? SelectedInspectionResult.FailureReasonText : SelectedInspectionResult.SuggestionText
             : string.Empty;
         IsPickMode = false;
+        UpdateSelectedClosureSummary(mapPoint.DeviceCode);
 
         UpdateMissingCoordinateSelection();
         RaisePropertyChanged(nameof(HasSelectedPoint));
@@ -635,6 +698,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         SelectedCoordinateRemarkText = "暂无人工备注";
         SelectedInspectionResult = null;
         SyncMediaReviewContext();
+        UpdateSelectedClosureSummary(null);
         EditorLongitude = string.Empty;
         EditorLatitude = string.Empty;
         EditorRemark = string.Empty;
@@ -702,6 +766,43 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         {
             item.IsSelected = string.Equals(item.Key, SelectedPointDeviceCode, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    private void RaiseSelectedClosureChanged()
+    {
+        RaisePropertyChanged(nameof(SelectedClosureStatusText));
+        RaisePropertyChanged(nameof(SelectedClosureReviewConclusionText));
+        RaisePropertyChanged(nameof(SelectedClosureLatestRecheckText));
+        RaisePropertyChanged(nameof(SelectedClosurePendingFlagsText));
+        RaisePropertyChanged(nameof(SelectedClosureStatusAccentResourceKey));
+    }
+
+    private static MapInspectionMarkerViewModel BuildMapMarker(
+        InspectionScopeMapPoint point,
+        FaultClosureLinkageSummary closureSummary)
+    {
+        return new MapInspectionMarkerViewModel
+        {
+            DeviceCode = point.DeviceCode,
+            DeviceName = point.DeviceName,
+            Longitude = point.Longitude,
+            Latitude = point.Latitude,
+            IsInCurrentScope = point.IsInCurrentScope,
+            IsFocused = point.IsFocused,
+            IsOnline = point.IsOnline,
+            CoordinateSource = point.CoordinateSource,
+            CoordinateSystem = point.CoordinateSystem,
+            PlaybackHealthGrade = point.PlaybackHealthGrade,
+            NeedRecheck = point.NeedRecheck,
+            LastInspectionTime = point.LastInspectionTime,
+            FailureReasonSummary = point.FailureReasonSummary,
+            ClosureStatusText = closureSummary.CurrentStatusText,
+            ClosurePendingFlagsText = closureSummary.PendingFlagsText,
+            IsPendingDispatch = closureSummary.IsPendingDispatch,
+            IsPendingRecheck = closureSummary.IsPendingRecheck,
+            IsPendingClear = closureSummary.IsPendingClear,
+            IsFalsePositiveClosed = closureSummary.IsFalsePositiveClosed
+        };
     }
 
     private static string BuildStatusText(InspectionScopeMapPoint point)

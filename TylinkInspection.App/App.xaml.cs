@@ -12,6 +12,8 @@ namespace TylinkInspection.App;
 
 public partial class App : Application
 {
+    private RecheckSchedulerService? _recheckSchedulerService;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -34,6 +36,7 @@ public partial class App : Application
         var screenshotSampleStore = new JsonScreenshotSampleStore();
         var manualReviewStore = new JsonManualReviewStore();
         var faultClosureStore = new JsonFaultClosureStore();
+        var recheckTaskStore = new JsonRecheckTaskStore();
         var cloudPlaybackCacheStore = new JsonCloudPlaybackCacheStore();
         var screenshotArtifactStore = new LocalScreenshotArtifactStore();
         var inspectionScopeStore = new JsonInspectionScopeStore();
@@ -69,6 +72,12 @@ public partial class App : Application
             inspectionScopeService,
             deviceCatalogService,
             deviceInspectionService);
+        _recheckSchedulerService = new RecheckSchedulerService(
+            recheckTaskStore,
+            faultClosureService,
+            deviceInspectionService,
+            playbackReviewService);
+        _recheckSchedulerService.Start();
         var reviewCenterService = new ReviewCenterService(
             inspectionScopeService,
             aiAlertService,
@@ -83,6 +92,7 @@ public partial class App : Application
             deviceInspectionService,
             manualCoordinateService,
             inspectionSelectionService,
+            faultClosureService,
             playbackReviewService,
             screenshotSamplingService,
             cloudPlaybackService,
@@ -92,6 +102,7 @@ public partial class App : Application
             deviceInspectionService,
             inspectionScopeService,
             inspectionSelectionService,
+            faultClosureService,
             playbackReviewService,
             screenshotSamplingService,
             cloudPlaybackService);
@@ -106,6 +117,7 @@ public partial class App : Application
         var faultClosureCenterPageViewModel = new FaultClosureCenterPageViewModel(
             workspaceService.GetWorkspaceData().FaultClosureCenterPage,
             faultClosureService,
+            _recheckSchedulerService,
             inspectionScopeService,
             deviceCatalogService,
             deviceInspectionService,
@@ -134,5 +146,11 @@ public partial class App : Application
 
         MainWindow = shellWindow;
         shellWindow.Show();
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _recheckSchedulerService?.Stop();
+        base.OnExit(e);
     }
 }

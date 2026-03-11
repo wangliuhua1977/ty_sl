@@ -75,6 +75,52 @@
                         </Border>
                         <Border Style="{StaticResource PanelCardStyle}">
                             <StackPanel>
+                                <DockPanel>
+                                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="复检任务队列" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                        <TextBlock Text="{Binding RecheckTasks.Count, StringFormat=当前 {0} 条}" />
+                                    </Border>
+                                </DockPanel>
+                                <TextBlock Margin="0,10,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding RecheckQueueStatusText}" />
+                                <WrapPanel Margin="0,14,0,0">
+                                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding AddToRecheckQueueCommand}" IsEnabled="{Binding CanAddToRecheckQueue}" Content="加入复检" />
+                                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding TriggerSelectedTaskCommand}" IsEnabled="{Binding CanTriggerSelectedTask}" Content="手动执行" />
+                                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding ToggleSelectedTaskEnabledCommand}" IsEnabled="{Binding CanToggleSelectedTaskEnabled}" Content="{Binding ToggleTaskEnabledButtonText}" />
+                                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding RefreshRecheckQueueCommand}" Content="刷新队列" />
+                                </WrapPanel>
+                                <ListBox Margin="0,16,0,0" MaxHeight="300" ItemsSource="{Binding RecheckTasks}" SelectedItem="{Binding SelectedRecheckTask}" Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="Margin" Value="0,0,0,10" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="12" Background="{DynamicResource MetricTileBackgroundBrush}" BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}" BorderThickness="1" CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock FontWeight="SemiBold" Text="{Binding DeviceName}" />
+                                                        <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource FilterBadgeBackgroundBrush}" BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
+                                                            <TextBlock Text="{Binding CurrentStatusText}" />
+                                                        </Border>
+                                                    </DockPanel>
+                                                    <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding DeviceCode}" />
+                                                    <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding NextRunAtText, StringFormat=下次执行：{0}}" />
+                                                    <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding EnabledStatusText}" />
+                                                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding LastExecutionSummaryText}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource PanelCardStyle}">
+                            <StackPanel>
                                 <TextBlock Style="{StaticResource SectionTitleStyle}" Text="本轮边界" />
                                 <TextBlock Margin="0,10,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="当前以本地闭环为主，派单草稿、复检、销警与关闭状态全部先落本地，不接真实工单与真实销警接口。" />
                                 <TextBlock Margin="0,8,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="复检复用现有基础巡检与播放器宿主能力，右侧仍可联动直播、回看和截图复核。" />
@@ -208,6 +254,12 @@
                                 <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedLatestRecheckText}" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" TextWrapping="Wrap" Text="{Binding SelectedClearTrailText}" />
                                 <TextBlock Margin="0,16,0,6" Style="{StaticResource FieldLabelStyle}" Text="操作人" />
+                                <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="任务调度状态" />
+                                <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskStatusText}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskEnabledText}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskNextRunText, StringFormat=下次执行：{0}}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedTaskRuleText}" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedTaskLatestResultText}" />
                                 <TextBox IsEnabled="{Binding HasSelectedRecord}" Text="{Binding OperatorName, UpdateSourceTrigger=PropertyChanged}" />
                                 <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="操作备注" />
                                 <TextBox Height="84" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding HasSelectedRecord}" TextWrapping="Wrap" Text="{Binding ActionNote, UpdateSourceTrigger=PropertyChanged}" />
