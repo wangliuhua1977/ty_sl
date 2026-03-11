@@ -6,11 +6,12 @@ using TylinkInspection.Core.Models;
 
 namespace TylinkInspection.UI.ViewModels;
 
-public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
+public sealed partial class FaultClosureCenterPageViewModel : PageViewModelBase
 {
     private readonly IFaultClosureService _faultClosureService;
     private readonly IRecheckSchedulerService _recheckSchedulerService;
     private readonly IInspectionScopeService _inspectionScopeService;
+    private readonly IInspectionSelectionService _inspectionSelectionService;
     private readonly IDeviceCatalogService _deviceCatalogService;
     private readonly IDeviceInspectionService _deviceInspectionService;
     private readonly DeviceMediaReviewViewModel _mediaReview;
@@ -54,12 +55,16 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
     private bool _focusedOnly;
     private bool _isRefreshing;
     private bool _isProcessingAction;
+    private bool _suppressSelectionSync;
 
     public FaultClosureCenterPageViewModel(
         ModulePageData pageData,
         IFaultClosureService faultClosureService,
         IRecheckSchedulerService recheckSchedulerService,
         IInspectionScopeService inspectionScopeService,
+        IInspectionSelectionService inspectionSelectionService,
+        IInspectionModuleNavigationService moduleNavigationService,
+        IAiInspectionTaskService aiInspectionTaskService,
         IDeviceCatalogService deviceCatalogService,
         IDeviceInspectionService deviceInspectionService,
         IPlaybackReviewService playbackReviewService,
@@ -70,11 +75,16 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         _faultClosureService = faultClosureService;
         _recheckSchedulerService = recheckSchedulerService;
         _inspectionScopeService = inspectionScopeService;
+        _inspectionSelectionService = inspectionSelectionService;
+        _moduleNavigationService = moduleNavigationService;
+        _aiInspectionTaskService = aiInspectionTaskService;
         _deviceCatalogService = deviceCatalogService;
         _deviceInspectionService = deviceInspectionService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         _faultClosureService.OverviewChanged += OnFaultClosureOverviewChanged;
         _recheckSchedulerService.OverviewChanged += OnRecheckOverviewChanged;
+        _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
+        _moduleNavigationService.NavigationRequested += OnNavigationRequested;
 
         StatusBadgeText = pageData.StatusBadgeText;
         StatusBadgeAccentResourceKey = pageData.StatusBadgeAccentResourceKey;
@@ -207,6 +217,7 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
 
             SyncMediaReviewContext();
             SyncSelectedTaskFromRecord();
+            RefreshSourceTaskContext(value?.DeviceCode);
             RaiseSelectedRecordChanged();
         }
     }
@@ -684,7 +695,14 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
 
             SelectedRecord = !string.IsNullOrWhiteSpace(preferredRecordId)
                 ? Records.FirstOrDefault(item => string.Equals(item.RecordId, preferredRecordId, StringComparison.OrdinalIgnoreCase))
-                : Records.FirstOrDefault();
+                : null;
+
+            if (SelectedRecord is null)
+            {
+                TryApplySharedSelection(fallbackToFirstRecord: true);
+            }
+
+            SelectedRecord ??= Records.FirstOrDefault();
             RefreshRecheckQueue(SelectedRecheckTask?.TaskId);
         }
         catch (Exception ex)
@@ -715,9 +733,48 @@ public sealed class FaultClosureCenterPageViewModel : PageViewModelBase
         Application.Current.Dispatcher.BeginInvoke(new Action(() => _ = RefreshAsync(preserveSelection: true)));
     }
 
+    private void OnSelectionChanged(object? sender, EventArgs e)
+    {
+        if (_suppressSelectionSync)
+        {
+            return;
+        }
+
+        Application.Current.Dispatcher.BeginInvoke(new Action(() => TryApplySharedSelection(fallbackToFirstRecord: false)));
+    }
+
     private void OnRecheckOverviewChanged(object? sender, EventArgs e)
     {
         Application.Current.Dispatcher.BeginInvoke(new Action(() => RefreshRecheckQueue()));
+    }
+
+    private void TryApplySharedSelection(bool fallbackToFirstRecord)
+    {
+        var deviceCode = _inspectionSelectionService.GetSelectedDeviceCode();
+        if (!string.IsNullOrWhiteSpace(deviceCode))
+        {
+            var matched = Records.FirstOrDefault(item =>
+                string.Equals(item.DeviceCode, deviceCode, StringComparison.OrdinalIgnoreCase));
+            if (matched is not null)
+            {
+                _suppressSelectionSync = true;
+                try
+                {
+                    SelectedRecord = matched;
+                }
+                finally
+                {
+                    _suppressSelectionSync = false;
+                }
+
+                return;
+            }
+        }
+
+        if (fallbackToFirstRecord && SelectedRecord is null)
+        {
+            SelectedRecord = Records.FirstOrDefault();
+        }
     }
 
     private async Task AddToRecheckQueueAsync()

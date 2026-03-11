@@ -6,7 +6,7 @@ using TylinkInspection.Core.Models;
 
 namespace TylinkInspection.UI.ViewModels;
 
-public sealed class ReviewCenterPageViewModel : PageViewModelBase
+public sealed partial class ReviewCenterPageViewModel : PageViewModelBase
 {
     private const string WallModeAll = "All";
     private const string WallModeAbnormal = "Abnormal";
@@ -49,6 +49,8 @@ public sealed class ReviewCenterPageViewModel : PageViewModelBase
         IReviewCenterService reviewCenterService,
         IInspectionScopeService inspectionScopeService,
         IInspectionSelectionService inspectionSelectionService,
+        IInspectionModuleNavigationService moduleNavigationService,
+        IAiInspectionTaskService aiInspectionTaskService,
         IPlaybackReviewService playbackReviewService,
         IScreenshotSamplingService screenshotSamplingService,
         ICloudPlaybackService cloudPlaybackService)
@@ -59,6 +61,8 @@ public sealed class ReviewCenterPageViewModel : PageViewModelBase
         _reviewCenterService = reviewCenterService;
         _inspectionScopeService = inspectionScopeService;
         _inspectionSelectionService = inspectionSelectionService;
+        _moduleNavigationService = moduleNavigationService;
+        _aiInspectionTaskService = aiInspectionTaskService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
 
         StatusBadgeText = pageData.StatusBadgeText;
@@ -108,6 +112,7 @@ public sealed class ReviewCenterPageViewModel : PageViewModelBase
 
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
         _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
+        _moduleNavigationService.NavigationRequested += OnNavigationRequested;
 
         RefreshCommand = new RelayCommand<object?>(_ => _ = RefreshOverviewAsync(forceRefreshAiAlerts: false, preserveSelection: true));
         RefreshAiAlertsCommand = new RelayCommand<object?>(_ => _ = RefreshOverviewAsync(forceRefreshAiAlerts: true, preserveSelection: true));
@@ -530,6 +535,7 @@ public sealed class ReviewCenterPageViewModel : PageViewModelBase
         RefreshSchemeItems(scopeResult.CurrentScheme.Id);
         RebuildDisplayedEvidenceCards();
         RestoreSelection(preferredEvidenceId, preferredDeviceCode);
+        RefreshSourceTaskContext(_selectedEvidence?.DeviceCode ?? _selectedScopeDevice?.Device.DeviceCode);
 
         RaisePropertyChanged(nameof(CurrentSchemeText));
         RaisePropertyChanged(nameof(SchemeSummaryText));
@@ -728,6 +734,7 @@ public sealed class ReviewCenterPageViewModel : PageViewModelBase
         UpdateCardSelection();
         ResetReviewDraft();
         SyncMediaReviewContext();
+        RefreshSourceTaskContext(scopeDevice?.Device.DeviceCode ?? evidence?.DeviceCode);
         RaiseSelectedContextChanged();
 
         if (publishSelection)
@@ -743,6 +750,7 @@ public sealed class ReviewCenterPageViewModel : PageViewModelBase
         UpdateCardSelection();
         ResetReviewDraft();
         SyncMediaReviewContext();
+        RefreshSourceTaskContext(null);
         RaiseSelectedContextChanged();
     }
 

@@ -35,8 +35,15 @@ public sealed class JsonAiInspectionTaskPlanStore : IAiInspectionTaskPlanStore
             return Array.Empty<AiInspectionTaskPlan>();
         }
 
-        return JsonSerializer.Deserialize<List<AiInspectionTaskPlan>>(json, SerializerOptions)
-            ?? Array.Empty<AiInspectionTaskPlan>();
+        try
+        {
+            return JsonSerializer.Deserialize<List<AiInspectionTaskPlan>>(json, SerializerOptions)
+                ?? new List<AiInspectionTaskPlan>();
+        }
+        catch
+        {
+            return Array.Empty<AiInspectionTaskPlan>();
+        }
     }
 
     public void SaveAll(IReadOnlyList<AiInspectionTaskPlan> plans)

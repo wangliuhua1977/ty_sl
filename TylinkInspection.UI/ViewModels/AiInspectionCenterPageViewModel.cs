@@ -6,17 +6,25 @@ using TylinkInspection.Core.Models;
 
 namespace TylinkInspection.UI.ViewModels;
 
-public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
+public sealed partial class AiInspectionCenterPageViewModel : PageViewModelBase
 {
     private const string AllStatusOption = "全部状态";
 
     private readonly IAiInspectionTaskService _taskService;
     private readonly IInspectionScopeService _inspectionScopeService;
+    private readonly IInspectionModuleNavigationService _moduleNavigationService;
 
     private AiInspectionTaskBatch? _selectedTask;
+    private AiInspectionTaskItem? _selectedTaskItem;
+    private AiInspectionTaskPlan? _selectedPlan;
     private string _taskName = string.Empty;
+    private string _planName = string.Empty;
+    private string _planHourText = "09";
+    private string _planMinuteText = "00";
     private string _selectedCreateTaskType = AiInspectionTaskType.BasicInspection;
     private string _selectedCreateScopeMode = AiInspectionTaskScopeMode.FullScheme;
+    private string _selectedPlanTaskType = AiInspectionTaskType.BasicInspection;
+    private string _selectedPlanScopeMode = AiInspectionTaskScopeMode.FullScheme;
     private string _selectedStatus = AllStatusOption;
     private string _keyword = string.Empty;
     private string _operatorName = Environment.UserName;
@@ -25,19 +33,31 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
     private string _selectedTaskProgressText = "--";
     private string _selectedTaskFailureSummary = "暂无失败摘要。";
     private string _selectedTaskLatestSummary = "暂无结果摘要。";
+    private string _selectedTaskResultHeadline = "请先选择任务批次。";
 
     public AiInspectionCenterPageViewModel(
         IAiInspectionTaskService taskService,
-        IInspectionScopeService inspectionScopeService)
-        : base("AI智能巡检中心", "围绕批量任务、队列执行、子任务明细与恢复能力，升级为正式任务总控页。")
+        IInspectionScopeService inspectionScopeService,
+        IInspectionModuleNavigationService moduleNavigationService)
+        : base("AI智能巡检中心", "围绕批量任务、计划实例化、结果汇总、重试重跑和跨模块联动，升级为正式任务总控页。")
     {
         _taskService = taskService;
         _inspectionScopeService = inspectionScopeService;
+        _moduleNavigationService = moduleNavigationService;
 
         SummaryCards = new ObservableCollection<OverviewMetric>();
         TaskItems = new ObservableCollection<AiInspectionTaskBatch>();
         DetailItems = new ObservableCollection<AiInspectionTaskItem>();
         ExecutionRecords = new ObservableCollection<AiInspectionTaskExecutionRecord>();
+        TaskPlans = new ObservableCollection<AiInspectionTaskPlan>();
+        PlanHistoryItems = new ObservableCollection<AiInspectionTaskPlanExecutionHistory>();
+        SelectedPlanExecutionBatches = new ObservableCollection<AiInspectionTaskBatch>();
+        FailurePlanItems = new ObservableCollection<AiInspectionFailedPlanSummary>();
+        FailureBatchItems = new ObservableCollection<AiInspectionFailedBatchSummary>();
+        FailurePointItems = new ObservableCollection<AiInspectionFailedPointSummary>();
+        FailureReasonItems = new ObservableCollection<AiInspectionFailureReasonStat>();
+        TaskTypeFailureItems = new ObservableCollection<AiInspectionTaskTypeFailureStat>();
+        RepeatedFailurePointItems = new ObservableCollection<AiInspectionContinuousFailurePointSummary>();
 
         StatusOptions =
         [
@@ -67,13 +87,23 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         ];
 
         CreateAndRunCommand = new RelayCommand<object?>(_ => CreateAndRunTask());
+        CreateDailyPlanCommand = new RelayCommand<object?>(_ => CreateDailyPlan());
+        ToggleSelectedPlanEnabledCommand = new RelayCommand<object?>(_ => ToggleSelectedPlanEnabled());
         StartSelectedTaskCommand = new RelayCommand<object?>(_ => StartSelectedTask());
         CancelSelectedTaskCommand = new RelayCommand<object?>(_ => CancelSelectedTask());
+        RetrySelectedItemCommand = new RelayCommand<object?>(_ => RetrySelectedItem());
+        RerunFailedItemsCommand = new RelayCommand<object?>(_ => RerunFailedItems());
+        RerunUnsuccessfulItemsCommand = new RelayCommand<object?>(_ => RerunUnsuccessfulItems());
+        NavigateToPointGovernanceCommand = new RelayCommand<object?>(_ => NavigateTo(InspectionModulePageKeys.PointGovernance));
+        NavigateToMapInspectionCommand = new RelayCommand<object?>(_ => NavigateTo(InspectionModulePageKeys.MapInspection));
+        NavigateToReviewCenterCommand = new RelayCommand<object?>(_ => NavigateTo(InspectionModulePageKeys.ReviewCenter));
+        NavigateToFaultClosureCommand = new RelayCommand<object?>(_ => NavigateTo(InspectionModulePageKeys.FaultClosure));
         RefreshCommand = new RelayCommand<object?>(_ => Reload());
         ClearFilterCommand = new RelayCommand<object?>(_ => ClearFilter());
 
         _taskService.TasksChanged += OnTasksChanged;
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
+        _moduleNavigationService.NavigationRequested += OnNavigationRequested;
 
         Reload();
     }
@@ -92,11 +122,31 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
 
     public ObservableCollection<AiInspectionTaskExecutionRecord> ExecutionRecords { get; }
 
+    public ObservableCollection<AiInspectionTaskPlan> TaskPlans { get; }
+
     public ICommand CreateAndRunCommand { get; }
+
+    public ICommand CreateDailyPlanCommand { get; }
+
+    public ICommand ToggleSelectedPlanEnabledCommand { get; }
 
     public ICommand StartSelectedTaskCommand { get; }
 
     public ICommand CancelSelectedTaskCommand { get; }
+
+    public ICommand RetrySelectedItemCommand { get; }
+
+    public ICommand RerunFailedItemsCommand { get; }
+
+    public ICommand RerunUnsuccessfulItemsCommand { get; }
+
+    public ICommand NavigateToPointGovernanceCommand { get; }
+
+    public ICommand NavigateToMapInspectionCommand { get; }
+
+    public ICommand NavigateToReviewCenterCommand { get; }
+
+    public ICommand NavigateToFaultClosureCommand { get; }
 
     public ICommand RefreshCommand { get; }
 
@@ -106,6 +156,24 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
     {
         get => _taskName;
         set => SetProperty(ref _taskName, value);
+    }
+
+    public string PlanName
+    {
+        get => _planName;
+        set => SetProperty(ref _planName, value);
+    }
+
+    public string PlanHourText
+    {
+        get => _planHourText;
+        set => SetProperty(ref _planHourText, value);
+    }
+
+    public string PlanMinuteText
+    {
+        get => _planMinuteText;
+        set => SetProperty(ref _planMinuteText, value);
     }
 
     public string SelectedCreateTaskType
@@ -118,6 +186,18 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
     {
         get => _selectedCreateScopeMode;
         set => SetProperty(ref _selectedCreateScopeMode, value);
+    }
+
+    public string SelectedPlanTaskType
+    {
+        get => _selectedPlanTaskType;
+        set => SetProperty(ref _selectedPlanTaskType, value);
+    }
+
+    public string SelectedPlanScopeMode
+    {
+        get => _selectedPlanScopeMode;
+        set => SetProperty(ref _selectedPlanScopeMode, value);
     }
 
     public string SelectedStatus
@@ -163,6 +243,26 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         }
     }
 
+    public AiInspectionTaskItem? SelectedTaskItem
+    {
+        get => _selectedTaskItem;
+        set => SetProperty(ref _selectedTaskItem, value);
+    }
+
+    public AiInspectionTaskPlan? SelectedPlan
+    {
+        get => _selectedPlan;
+        set
+        {
+            if (SetProperty(ref _selectedPlan, value))
+            {
+                RebuildSelectedPlanExecutionBatches();
+                RaisePropertyChanged(nameof(SelectedPlanStatusText));
+                RaisePropertyChanged(nameof(SelectedPlanNextRunText));
+            }
+        }
+    }
+
     public string SelectedTaskProgressText
     {
         get => _selectedTaskProgressText;
@@ -181,11 +281,25 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         private set => SetProperty(ref _selectedTaskLatestSummary, value);
     }
 
+    public string SelectedTaskResultHeadline
+    {
+        get => _selectedTaskResultHeadline;
+        private set => SetProperty(ref _selectedTaskResultHeadline, value);
+    }
+
     public string SelectedTaskStatusText => SelectedTask?.StatusText ?? "未选择任务";
 
     public string SelectedTaskTypeText => SelectedTask?.TaskTypeText ?? "--";
 
     public string SelectedTaskScopeText => SelectedTask?.ScopeModeText ?? "--";
+
+    public string SelectedTaskSourceText => SelectedTask?.SourceText ?? "--";
+
+    public string SelectedTaskPlanText => SelectedTask is null
+        ? "--"
+        : !string.IsNullOrWhiteSpace(SelectedTask.SourcePlanName)
+            ? $"{SelectedTask.SourcePlanName} / {SelectedTask.SourcePlanId}"
+            : "当前批次未关联计划";
 
     public string SelectedTaskSchemeText => SelectedTask is null ? "--" : $"{SelectedTask.SchemeName} / {SelectedTask.SchemeId}";
 
@@ -197,18 +311,40 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
 
     public string SelectedTaskCountsText => SelectedTask is null
         ? "--"
-        : $"总数 {SelectedTask.TotalCount} / 成功 {SelectedTask.SucceededCount} / 失败 {SelectedTask.FailedCount} / 异常 {SelectedTask.AbnormalCount}";
+        : $"总数 {SelectedTask.ResultSummary.TotalCount} / 成功 {SelectedTask.ResultSummary.SuccessCount} / 失败 {SelectedTask.ResultSummary.FailedCount} / 异常 {SelectedTask.ResultSummary.AbnormalCount}";
+
+    public string SelectedTaskPendingText => SelectedTask is null
+        ? "--"
+        : $"待人工复核 {SelectedTask.ResultSummary.PendingManualReviewCount} / 待闭环 {SelectedTask.ResultSummary.PendingClosureCount}";
+
+    public string SelectedTaskBasicSummary => SelectedTask?.ResultSummary.InspectionSummaryText ?? "--";
+
+    public string SelectedTaskPlaybackSummary => SelectedTask?.ResultSummary.PlaybackSummaryText ?? "--";
+
+    public string SelectedTaskScreenshotSummary => SelectedTask?.ResultSummary.ScreenshotSummaryText ?? "--";
+
+    public string SelectedTaskRecheckSummary => SelectedTask?.ResultSummary.RecheckSummaryText ?? "--";
+
+    public string SelectedTaskClosureSummary => SelectedTask?.ResultSummary.ClosureSummaryText ?? "--";
 
     public string SelectedTaskAccentResourceKey => SelectedTask?.AccentResourceKey ?? "TonePrimaryBrush";
 
+    public string SelectedPlanStatusText => SelectedPlan?.EnabledText ?? "--";
+
+    public string SelectedPlanNextRunText => SelectedPlan?.NextRunAtText ?? "--";
+
     private void Reload()
     {
-        var overview = _taskService.GetOverview(BuildQuery());
-        var items = _taskService.Query(BuildQuery()).ToList();
+        var query = BuildQuery();
+        var items = ApplyCenterQuickFilters(_taskService.Query(query).ToList());
+        var plans = _taskService.GetPlans();
+        var planHistories = _taskService.GetPlanExecutionHistory();
+        var failureDashboard = _taskService.GetFailureDashboard();
         var selectedTaskId = SelectedTask?.TaskId;
+        var selectedPlanId = SelectedPlan?.PlanId;
 
         RebuildScopeInfo();
-        RebuildSummary(overview);
+        RebuildSummary(BuildOverviewFromBatches(items));
 
         TaskItems.Clear();
         foreach (var item in items)
@@ -216,7 +352,19 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
             TaskItems.Add(item);
         }
 
+        TaskPlans.Clear();
+        foreach (var plan in plans)
+        {
+            TaskPlans.Add(plan);
+        }
+
+        RebuildPlanHistory(planHistories);
+        RebuildFailureDashboard(failureDashboard);
+
         SelectedTask = items.FirstOrDefault(item => item.TaskId == selectedTaskId) ?? items.FirstOrDefault();
+        SelectedPlan = plans.FirstOrDefault(item => string.Equals(item.PlanId, selectedPlanId, StringComparison.OrdinalIgnoreCase))
+            ?? plans.FirstOrDefault();
+        RaisePropertyChanged(nameof(TaskCenterFilterText));
     }
 
     private void RebuildScopeInfo()
@@ -232,48 +380,61 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         SummaryCards.Clear();
         SummaryCards.Add(BuildMetric("批次总数", overview.TotalTaskCount, "个", "全部历史批次", "TonePrimaryBrush"));
         SummaryCards.Add(BuildMetric("执行中", overview.RunningTaskCount, "个", "当前队列中", "ToneFocusBrush"));
-        SummaryCards.Add(BuildMetric("已完成", overview.SucceededTaskCount, "个", "成功批次", "ToneSuccessBrush"));
-        SummaryCards.Add(BuildMetric("异常点位", overview.AbnormalItemCount, "个", "批次累计异常", "ToneWarningBrush"));
+        SummaryCards.Add(BuildMetric("待执行", overview.PendingTaskCount, "个", "待运行批次", "ToneWarningBrush"));
+        SummaryCards.Add(BuildMetric("异常点位", overview.AbnormalItemCount, "个", "批次累计异常", "ToneDangerBrush"));
     }
 
     private void RebuildDetail()
     {
         DetailItems.Clear();
         ExecutionRecords.Clear();
+        SelectedTaskItem = null;
 
         if (SelectedTask is null)
         {
             SelectedTaskProgressText = "--";
             SelectedTaskFailureSummary = "暂无失败摘要。";
             SelectedTaskLatestSummary = "暂无结果摘要。";
+            SelectedTaskResultHeadline = "请先选择任务批次。";
+            RaiseResultSummaryProperties();
             return;
         }
 
         var detail = _taskService.GetDetail(SelectedTask.TaskId) ?? SelectedTask;
         _selectedTask = detail;
 
-        foreach (var item in detail.Items.OrderByDescending(item => item.IsAbnormalResult).ThenBy(item => item.DeviceName, StringComparer.OrdinalIgnoreCase))
+        var filteredItems = ApplyDetailItemFilters(detail)
+            .OrderByDescending(item => item.IsAbnormalResult)
+            .ThenBy(item => item.DeviceName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var item in filteredItems)
         {
             DetailItems.Add(item);
         }
 
-        foreach (var record in detail.ExecutionRecords.OrderByDescending(item => item.Timestamp).Take(20))
+        foreach (var record in detail.ExecutionRecords.OrderByDescending(item => item.Timestamp).Take(30))
         {
             ExecutionRecords.Add(record);
         }
 
+        SelectedTaskItem = ResolvePreferredTaskItem(detail, filteredItems);
         SelectedTaskProgressText = $"{detail.ProgressText} / 成功 {detail.SucceededCount} / 失败 {detail.FailedCount} / 取消 {detail.CanceledCount}";
         SelectedTaskFailureSummary = string.IsNullOrWhiteSpace(detail.FailureSummary) ? "暂无失败摘要。" : detail.FailureSummary;
         SelectedTaskLatestSummary = string.IsNullOrWhiteSpace(detail.LatestResultSummary) ? "暂无结果摘要。" : detail.LatestResultSummary;
+        SelectedTaskResultHeadline = $"结果汇总生成时间 {detail.ResultSummary.GeneratedAt.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+        RaiseResultSummaryProperties();
     }
 
     private void CreateAndRunTask()
     {
         try
         {
+            var currentScheme = _inspectionScopeService.GetCurrentScheme();
             _taskService.CreateTask(new AiInspectionTaskCreateRequest
             {
                 TaskName = TaskName,
+                SchemeId = currentScheme.Id,
                 TaskType = SelectedCreateTaskType,
                 ScopeMode = SelectedCreateScopeMode,
                 CreatedBy = OperatorName,
@@ -281,6 +442,51 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
             });
 
             TaskName = string.Empty;
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            SelectedTaskLatestSummary = ex.Message;
+        }
+    }
+
+    private void CreateDailyPlan()
+    {
+        try
+        {
+            var currentScheme = _inspectionScopeService.GetCurrentScheme();
+            _taskService.CreatePlan(new AiInspectionTaskPlanCreateRequest
+            {
+                PlanName = PlanName,
+                SchemeId = currentScheme.Id,
+                TaskType = SelectedPlanTaskType,
+                ScopeMode = SelectedPlanScopeMode,
+                ScheduleType = AiInspectionTaskPlanScheduleType.Daily,
+                DailyHour = ParseHour(PlanHourText),
+                DailyMinute = ParseMinute(PlanMinuteText),
+                IsEnabled = true,
+                CreatedBy = OperatorName
+            });
+
+            PlanName = string.Empty;
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            SelectedTaskLatestSummary = ex.Message;
+        }
+    }
+
+    private void ToggleSelectedPlanEnabled()
+    {
+        if (SelectedPlan is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _taskService.SetPlanEnabled(SelectedPlan.PlanId, !SelectedPlan.IsEnabled, OperatorName);
             Reload();
         }
         catch (Exception ex)
@@ -311,10 +517,83 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         Reload();
     }
 
+    private void RetrySelectedItem()
+    {
+        if (SelectedTask is null || SelectedTaskItem is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _taskService.RetryTaskItem(SelectedTask.TaskId, SelectedTaskItem.ItemId, OperatorName);
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            SelectedTaskLatestSummary = ex.Message;
+        }
+    }
+
+    private void RerunFailedItems()
+    {
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _taskService.RerunFailedItems(SelectedTask.TaskId, OperatorName);
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            SelectedTaskLatestSummary = ex.Message;
+        }
+    }
+
+    private void RerunUnsuccessfulItems()
+    {
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _taskService.RerunUnsuccessfulItems(SelectedTask.TaskId, OperatorName);
+            Reload();
+        }
+        catch (Exception ex)
+        {
+            SelectedTaskLatestSummary = ex.Message;
+        }
+    }
+
+    private void NavigateTo(string targetPageKey)
+    {
+        if (SelectedTask is null)
+        {
+            return;
+        }
+
+        var contextItem = SelectedTaskItem ?? SelectedTask.Items.FirstOrDefault();
+        NavigateToTargetPage(targetPageKey, SelectedTask, contextItem);
+    }
+
     private void ClearFilter()
     {
         Keyword = string.Empty;
         SelectedStatus = AllStatusOption;
+        _activeFailureReasonFilter = string.Empty;
+        _quickTaskTypeFilter = string.Empty;
+        _focusedTaskId = string.Empty;
+        _focusedTaskItemId = string.Empty;
+        _focusedDeviceCode = string.Empty;
+        _focusedEvidenceId = string.Empty;
+        _focusedClosureId = string.Empty;
+        TaskCenterContextText = "已清空任务中心筛选与回流上下文。";
         Reload();
     }
 
@@ -323,7 +602,8 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         return new AiInspectionTaskQuery
         {
             Keyword = string.IsNullOrWhiteSpace(Keyword) ? null : Keyword.Trim(),
-            Status = SelectedStatus == AllStatusOption ? null : SelectedStatus
+            Status = SelectedStatus == AllStatusOption ? null : SelectedStatus,
+            TaskType = string.IsNullOrWhiteSpace(_quickTaskTypeFilter) ? null : _quickTaskTypeFilter
         };
     }
 
@@ -332,12 +612,27 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         RaisePropertyChanged(nameof(SelectedTaskStatusText));
         RaisePropertyChanged(nameof(SelectedTaskTypeText));
         RaisePropertyChanged(nameof(SelectedTaskScopeText));
+        RaisePropertyChanged(nameof(SelectedTaskSourceText));
+        RaisePropertyChanged(nameof(SelectedTaskPlanText));
         RaisePropertyChanged(nameof(SelectedTaskSchemeText));
         RaisePropertyChanged(nameof(SelectedTaskCreatedText));
         RaisePropertyChanged(nameof(SelectedTaskStartedText));
         RaisePropertyChanged(nameof(SelectedTaskCompletedText));
         RaisePropertyChanged(nameof(SelectedTaskCountsText));
+        RaisePropertyChanged(nameof(SelectedTaskPendingText));
         RaisePropertyChanged(nameof(SelectedTaskAccentResourceKey));
+        RaisePropertyChanged(nameof(SelectedTaskFailureDigestText));
+        RaisePropertyChanged(nameof(SelectedTaskJumpEntryText));
+    }
+
+    private void RaiseResultSummaryProperties()
+    {
+        RaiseSelectionProperties();
+        RaisePropertyChanged(nameof(SelectedTaskBasicSummary));
+        RaisePropertyChanged(nameof(SelectedTaskPlaybackSummary));
+        RaisePropertyChanged(nameof(SelectedTaskScreenshotSummary));
+        RaisePropertyChanged(nameof(SelectedTaskRecheckSummary));
+        RaisePropertyChanged(nameof(SelectedTaskClosureSummary));
     }
 
     private void OnTasksChanged(object? sender, EventArgs e)
@@ -348,6 +643,20 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
     private void OnScopeChanged(object? sender, EventArgs e)
     {
         Dispatch(RebuildScopeInfo);
+    }
+
+    private static int ParseHour(string text)
+    {
+        return int.TryParse(text, out var value)
+            ? Math.Clamp(value, 0, 23)
+            : 9;
+    }
+
+    private static int ParseMinute(string text)
+    {
+        return int.TryParse(text, out var value)
+            ? Math.Clamp(value, 0, 59)
+            : 0;
     }
 
     private static void Dispatch(Action action)

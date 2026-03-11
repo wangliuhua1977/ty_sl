@@ -12,7 +12,11 @@ public sealed record class AiInspectionTaskItemResultSummary
 
     public string ManualReviewStatusText { get; init; } = string.Empty;
 
+    public string ManualReviewStatusCode { get; init; } = string.Empty;
+
     public string ClosureStatusText { get; init; } = string.Empty;
+
+    public string ClosureStatusCode { get; init; } = string.Empty;
 
     public bool IsPendingManualReview { get; init; }
 
@@ -23,6 +27,12 @@ public sealed record class AiInspectionTaskItemResultSummary
     public bool IsPendingRecheck { get; init; }
 
     public bool IsPendingClear { get; init; }
+
+    public bool IsCleared { get; init; }
+
+    public bool IsClosed { get; init; }
+
+    public bool IsFalsePositiveClosed { get; init; }
 
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.Now;
 }

@@ -8,7 +8,7 @@ using TylinkInspection.Core.Models;
 
 namespace TylinkInspection.UI.ViewModels;
 
-public sealed class MapInspectionPageViewModel : PageViewModelBase
+public sealed partial class MapInspectionPageViewModel : PageViewModelBase
 {
     private static readonly IReadOnlyDictionary<string, FaultClosureLinkageSummary> EmptyClosureLookup =
         new Dictionary<string, FaultClosureLinkageSummary>(StringComparer.OrdinalIgnoreCase);
@@ -55,6 +55,8 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         IDeviceInspectionService deviceInspectionService,
         IManualCoordinateService manualCoordinateService,
         IInspectionSelectionService inspectionSelectionService,
+        IInspectionModuleNavigationService moduleNavigationService,
+        IAiInspectionTaskService aiInspectionTaskService,
         IFaultClosureService faultClosureService,
         IPlaybackReviewService playbackReviewService,
         IScreenshotSamplingService screenshotSamplingService,
@@ -66,12 +68,15 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         _deviceInspectionService = deviceInspectionService;
         _manualCoordinateService = manualCoordinateService;
         _inspectionSelectionService = inspectionSelectionService;
+        _moduleNavigationService = moduleNavigationService;
+        _aiInspectionTaskService = aiInspectionTaskService;
         _faultClosureService = faultClosureService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         MapOptions = mapOptions;
 
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
         _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
+        _moduleNavigationService.NavigationRequested += OnNavigationRequested;
         _faultClosureService.OverviewChanged += OnFaultClosureChanged;
 
         SchemeItems = new ObservableCollection<SelectionItemViewModel>();
@@ -677,6 +682,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         UpdateMissingCoordinateSelection();
         RaisePropertyChanged(nameof(HasSelectedPoint));
         RaisePropertyChanged(nameof(CanInspectSelectedPoint));
+        RefreshSourceTaskContext(SelectedPointDeviceCode);
 
         if (syncSelection)
         {
@@ -711,6 +717,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         UpdateMissingCoordinateSelection();
         RaisePropertyChanged(nameof(HasSelectedPoint));
         RaisePropertyChanged(nameof(CanInspectSelectedPoint));
+        RefreshSourceTaskContext(null);
 
         if (syncSelection)
         {

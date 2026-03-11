@@ -16,6 +16,14 @@ public interface IAiInspectionTaskService
 
     IReadOnlyList<AiInspectionTaskPlan> GetPlans();
 
+    IReadOnlyList<AiInspectionTaskPlanExecutionHistory> GetPlanExecutionHistory();
+
+    IReadOnlyList<AiInspectionTaskBatch> GetPlanExecutionBatches(string planId);
+
+    AiInspectionFailureDashboard GetFailureDashboard();
+
+    AiInspectionTaskContextSummary? GetTaskContext(InspectionModuleNavigationContext? context);
+
     AiInspectionTaskBatch? GetDetail(string taskId);
 
     AiInspectionTaskBatch CreateTask(AiInspectionTaskCreateRequest request);

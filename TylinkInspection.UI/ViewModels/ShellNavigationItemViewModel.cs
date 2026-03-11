@@ -4,6 +4,8 @@ public sealed class ShellNavigationItemViewModel : ObservableObject
 {
     private bool _isSelected;
 
+    public required string PageKey { get; init; }
+
     public required string Title { get; init; }
 
     public required PageViewModelBase PageViewModel { get; init; }

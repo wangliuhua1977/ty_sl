@@ -3,152 +3,298 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
              mc:Ignorable="d">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,0,0,4">
+        <StackPanel>
             <Border Style="{StaticResource PanelCardStyle}">
                 <DockPanel>
-                    <StackPanel DockPanel.Dock="Left">
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding PageTitle}" />
-                        <TextBlock Margin="0,8,0,0"
-                                   Style="{StaticResource SectionHintStyle}"
-                                   TextWrapping="Wrap"
-                                   Text="{Binding PageSubtitle}" />
-                    </StackPanel>
-                    <Border DockPanel.Dock="Right"
-                            Style="{StaticResource MiniBadgeStyle}"
-                            Background="{DynamicResource FilterBadgeBackgroundBrush}">
-                        <TextBlock Text="TASK CONTROL" />
-                    </Border>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding PageTitle}" />
+                    <TextBlock Margin="12,4,0,0"
+                               DockPanel.Dock="Right"
+                               Style="{StaticResource SectionHintStyle}"
+                               Text="{Binding PageSubtitle}" />
                 </DockPanel>
             </Border>
 
-            <ItemsControl ItemsSource="{Binding SummaryCards}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <primitives:UniformGrid Columns="4" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Margin="0,0,16,16"
-                                Padding="16"
-                                Background="{DynamicResource MetricTileBackgroundBrush}"
-                                BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                BorderThickness="1"
-                                CornerRadius="{StaticResource InnerCardCornerRadius}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding Label}" />
-                                <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                                    <TextBlock FontSize="{StaticResource FontSizeMetric}" FontWeight="Bold" Text="{Binding Value}" />
-                                    <TextBlock Margin="6,10,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Unit}" />
-                                </StackPanel>
-                                <TextBlock Margin="0,8,0,0"
-                                           Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                           Text="{Binding DeltaText}" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
             <Border Style="{StaticResource PanelCardStyle}">
                 <WrapPanel>
-                    <TextBlock Style="{StaticResource FilterLabelStyle}" Text="任务检索" />
-                    <TextBox Width="220"
-                             Style="{StaticResource FilterTextBoxStyle}"
-                             Text="{Binding Keyword, UpdateSourceTrigger=PropertyChanged}" />
-
+                    <TextBlock Style="{StaticResource FilterLabelStyle}" Text="检索" />
+                    <TextBox Width="220" Style="{StaticResource FilterTextBoxStyle}" Text="{Binding Keyword}" />
                     <TextBlock Style="{StaticResource FilterLabelStyle}" Text="状态" />
                     <ComboBox Width="150"
                               Style="{StaticResource FilterComboBoxStyle}"
                               ItemsSource="{Binding StatusOptions}"
                               SelectedItem="{Binding SelectedStatus}" />
-
-                    <Button Style="{StaticResource ActionButtonStyle}"
-                            Command="{Binding RefreshCommand}"
-                            Content="刷新列表" />
-                    <Button Style="{StaticResource ActionButtonStyle}"
-                            Command="{Binding ClearFilterCommand}"
-                            Content="清空筛选" />
+                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding RefreshCommand}" Content="刷新" />
+                    <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding ClearFilterCommand}" Content="清空" />
                 </WrapPanel>
+            </Border>
+
+            <Border Style="{StaticResource PanelCardStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding TaskCenterFilterText}" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,6,0,0"
+                               Style="{StaticResource SectionHintStyle}"
+                               Text="{Binding TaskCenterContextText}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
             </Border>
 
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="360" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="420" />
+                    <ColumnDefinition Width="440" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Style="{StaticResource PanelCardStyle}" Margin="0,0,18,0">
+                <Border Grid.Column="0" Margin="0,0,16,0" Style="{StaticResource PanelCardStyle}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务创建区" />
-                        <TextBlock Margin="0,8,0,6"
-                                   Style="{StaticResource FieldLabelStyle}"
-                                   Text="当前巡检范围方案" />
-                        <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding CurrentSchemeName}" />
-                        <TextBlock Margin="0,8,0,0"
-                                   Style="{StaticResource SectionHintStyle}"
-                                   TextWrapping="Wrap"
-                                   Text="{Binding CurrentSchemeSummary}" />
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务创建" />
+                        <TextBlock Margin="0,8,0,6" Style="{StaticResource FieldLabelStyle}" Text="{Binding CurrentSchemeName}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding CurrentSchemeSummary}" TextWrapping="Wrap" />
 
-                        <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="任务名称" />
-                        <TextBox Style="{StaticResource FilterTextBoxStyle}"
-                                 Text="{Binding TaskName, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="任务类型" />
+                        <TextBlock Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="任务名称" />
+                        <TextBox Style="{StaticResource FilterTextBoxStyle}" Text="{Binding TaskName}" />
+                        <TextBlock Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="任务类型" />
                         <ComboBox Style="{StaticResource FilterComboBoxStyle}"
                                   ItemsSource="{Binding TaskTypeOptions}"
                                   DisplayMemberPath="Title"
                                   SelectedValuePath="Key"
                                   SelectedValue="{Binding SelectedCreateTaskType}" />
-
-                        <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="任务范围" />
+                        <TextBlock Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="任务范围" />
                         <ComboBox Style="{StaticResource FilterComboBoxStyle}"
                                   ItemsSource="{Binding ScopeModeOptions}"
                                   DisplayMemberPath="Title"
                                   SelectedValuePath="Key"
                                   SelectedValue="{Binding SelectedCreateScopeMode}" />
-
-                        <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="创建人" />
-                        <TextBox Style="{StaticResource FilterTextBoxStyle}"
-                                 Text="{Binding OperatorName, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <TextBlock Margin="0,18,0,12"
-                                   Style="{StaticResource SectionHintStyle}"
-                                   TextWrapping="Wrap"
-                                   Text="本轮仅支持立即执行。创建后会自动拆分为点位子任务并进入本地队列，应用重启后会恢复未完成任务。" />
-
-                        <Button Style="{StaticResource ActionButtonStyle}"
+                        <Button Margin="0,10,0,0"
+                                Style="{StaticResource ActionButtonStyle}"
                                 Command="{Binding CreateAndRunCommand}"
-                                Content="创建并立即执行" />
+                                Content="创建并执行" />
+
+                        <Separator Margin="0,14,0,12" />
+
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务计划" />
+                        <TextBlock Margin="0,8,0,4" Style="{StaticResource FieldLabelStyle}" Text="计划名称" />
+                        <TextBox Style="{StaticResource FilterTextBoxStyle}" Text="{Binding PlanName}" />
+                        <TextBlock Margin="0,8,0,4" Style="{StaticResource FieldLabelStyle}" Text="计划类型" />
+                        <ComboBox Style="{StaticResource FilterComboBoxStyle}"
+                                  ItemsSource="{Binding TaskTypeOptions}"
+                                  DisplayMemberPath="Title"
+                                  SelectedValuePath="Key"
+                                  SelectedValue="{Binding SelectedPlanTaskType}" />
+                        <TextBlock Margin="0,8,0,4" Style="{StaticResource FieldLabelStyle}" Text="计划范围" />
+                        <ComboBox Style="{StaticResource FilterComboBoxStyle}"
+                                  ItemsSource="{Binding ScopeModeOptions}"
+                                  DisplayMemberPath="Title"
+                                  SelectedValuePath="Key"
+                                  SelectedValue="{Binding SelectedPlanScopeMode}" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <TextBox Width="56" Style="{StaticResource FilterTextBoxStyle}" Text="{Binding PlanHourText}" />
+                            <TextBlock Margin="6,8,6,0" Text=":" />
+                            <TextBox Width="56" Style="{StaticResource FilterTextBoxStyle}" Text="{Binding PlanMinuteText}" />
+                        </WrapPanel>
+                        <Button Margin="0,10,0,0"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding CreateDailyPlanCommand}"
+                                Content="创建每日计划" />
+                        <Button Margin="0,8,0,0"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding ToggleSelectedPlanEnabledCommand}"
+                                Content="启用/停用选中计划" />
+
+                        <TextBlock Margin="0,10,0,4" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanStatusText}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanNextRunText}" />
+
+                        <ListBox Margin="0,10,0,0"
+                                 MaxHeight="260"
+                                 ItemsSource="{Binding TaskPlans}"
+                                 SelectedItem="{Binding SelectedPlan}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding PlanName}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding ScheduleText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding EnabledText}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Style="{StaticResource PanelCardStyle}" Margin="0,0,18,0">
+                <Border Grid.Column="1" Margin="0,0,16,0" Style="{StaticResource PanelCardStyle}">
                     <StackPanel>
-                        <DockPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务批次列表" />
-                            <TextBlock DockPanel.Dock="Right"
-                                       VerticalAlignment="Center"
-                                       Style="{StaticResource SectionHintStyle}"
-                                       Text="{Binding TaskItems.Count, StringFormat='共 {0} 个批次'}" />
-                        </DockPanel>
-                        <TextBlock Margin="0,8,0,18"
-                                   Style="{StaticResource SectionHintStyle}"
-                                   Text="列表聚合展示批次名称、任务类型、范围、执行统计与当前状态。" />
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务批次列表" />
+                        <ListBox Margin="0,10,0,0" ItemsSource="{Binding TaskItems}" SelectedItem="{Binding SelectedTask}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource ListItemCardStyle}"
+                                            BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding TaskName}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SourceText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding LatestResultSummary}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding ResultSummary.PendingManualReviewCount, StringFormat='待复核 {0}'}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding ResultSummary.PendingClosureCount, StringFormat='待闭环 {0}'}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
 
-                        <ListBox ItemsSource="{Binding TaskItems}"
-                                 SelectedItem="{Binding SelectedTask}"
+                <Border Grid.Column="2" Style="{StaticResource PanelCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务详情" />
+                        <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskStatusText}" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskSourceText}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskPlanText}" TextWrapping="Wrap" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskCountsText}" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskPendingText}" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskFailureDigestText}" TextWrapping="Wrap" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskJumpEntryText}" TextWrapping="Wrap" />
+                        <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldLabelStyle}" Text="{Binding SelectedTaskResultHeadline}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskBasicSummary}" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskPlaybackSummary}" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskScreenshotSummary}" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskRecheckSummary}" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedTaskClosureSummary}" TextWrapping="Wrap" />
+
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding StartSelectedTaskCommand}" Content="启动" />
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding CancelSelectedTaskCommand}" Content="取消" />
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding RerunFailedItemsCommand}" Content="重跑失败项" />
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding RerunUnsuccessfulItemsCommand}" Content="重跑未成功项" />
+                        </WrapPanel>
+
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding NavigateToPointGovernanceCommand}" Content="点位治理" />
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding NavigateToMapInspectionCommand}" Content="地图巡检台" />
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding NavigateToReviewCenterCommand}" Content="复核中心" />
+                            <Button Style="{StaticResource ActionButtonStyle}" Command="{Binding NavigateToFaultClosureCommand}" Content="故障闭环" />
+                        </WrapPanel>
+
+                        <TextBlock Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="子任务" />
+                        <ListBox MaxHeight="220"
+                                 ItemsSource="{Binding DetailItems}"
+                                 SelectedItem="{Binding SelectedTaskItem}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding DeviceName}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding DeviceCode}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding LastResultSummaryText}" TextWrapping="Wrap" />
+                                            <TextBlock Foreground="{DynamicResource ToneDangerBrush}" Text="{Binding LastErrorText}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Button Margin="0,8,0,0"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding RetrySelectedItemCommand}"
+                                Content="重试选中子任务" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="0.85*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Margin="0,0,16,0" Style="{StaticResource PanelCardStyle}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="计划执行历史" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   Text="上方选择任务计划后，这里持续查看该计划的实例化批次和最近执行结果。" />
+
+                        <ListBox Margin="0,14,0,0"
+                                 MaxHeight="240"
+                                 ItemsSource="{Binding PlanHistoryItems}"
+                                 SelectedItem="{Binding SelectedPlanHistoryEntry}"
                                  Background="Transparent"
-                                 BorderThickness="0"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                 BorderThickness="0">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Margin" Value="0,0,0,10" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding PlanName}" />
+                                                <Border DockPanel.Dock="Right"
+                                                        Style="{StaticResource MiniBadgeStyle}"
+                                                        Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                                    <TextBlock Text="{Binding EnabledText}" />
+                                                </Border>
+                                            </DockPanel>
+                                            <TextBlock Margin="0,6,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding TaskTypeText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding ScheduleText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding LastRunAtText, StringFormat='最近执行: {0}'}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding LatestTaskText, StringFormat='最近批次: {0}'}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding CountersText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding PendingText}" />
+                                            <TextBlock Margin="0,6,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding LatestResultSummary}"
+                                                       TextWrapping="Wrap" />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.OpenHistoryLatestBatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="最近批次详情" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Separator Margin="0,14,0,12" />
+
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="选中计划历史批次" />
+                        <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedPlanHistoryName}" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryTypeText}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryScheduleText}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryLastRunText, StringFormat='最近执行: {0}'}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryLatestTaskText, StringFormat='最近批次: {0}'}" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryCountersText}" />
+                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryPendingText}" />
+                        <TextBlock Margin="0,6,0,0"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   Text="{Binding SelectedPlanHistoryResultText}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SelectedPlanHistoryEnabledText}" />
+
+                        <ListBox Margin="0,14,0,0"
+                                 MaxHeight="260"
+                                 ItemsSource="{Binding SelectedPlanExecutionBatches}"
+                                 Background="Transparent"
+                                 BorderThickness="0">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0,0,0,10" />
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="BorderThickness" Value="0" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -160,55 +306,45 @@
                                             BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
                                         <StackPanel>
                                             <DockPanel>
-                                                <TextBlock FontWeight="SemiBold"
-                                                           TextWrapping="Wrap"
-                                                           Text="{Binding TaskName}" />
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding TaskName}" TextWrapping="Wrap" />
                                                 <Border DockPanel.Dock="Right"
-                                                        Style="{StaticResource StatusBadgeBorderStyle}"
-                                                        BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
-                                                    <TextBlock Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                               Text="{Binding StatusText}" />
+                                                        Style="{StaticResource MiniBadgeStyle}"
+                                                        Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                                    <TextBlock Text="{Binding StatusText}" />
                                                 </Border>
                                             </DockPanel>
-
-                                            <Grid Margin="0,10,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="72" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="72" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="类型" />
-                                                <TextBlock Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding TaskTypeText}" />
-                                                <TextBlock Grid.Column="2" Style="{StaticResource FieldLabelStyle}" Text="范围" />
-                                                <TextBlock Grid.Column="3" Style="{StaticResource FieldValueStyle}" Text="{Binding ScopeModeText}" />
-                                            </Grid>
-
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="72" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="72" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="点位数" />
-                                                <TextBlock Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding TotalCount}" />
-                                                <TextBlock Grid.Column="2" Style="{StaticResource FieldLabelStyle}" Text="进度" />
-                                                <TextBlock Grid.Column="3" Style="{StaticResource FieldValueStyle}" Text="{Binding ProgressText}" />
-                                            </Grid>
-
-                                            <TextBlock Margin="0,8,0,0"
+                                            <TextBlock Margin="0,6,0,0"
                                                        Style="{StaticResource SectionHintStyle}"
-                                                       Text="{Binding SucceededCount, StringFormat='成功 {0}'}" />
-                                            <TextBlock Margin="0,2,0,0"
+                                                       Text="{Binding CreatedAt, StringFormat='实例化时间: {0:yyyy-MM-dd HH:mm:ss}'}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding ResultSummary.SuccessCount, StringFormat='成功: {0}'}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding ResultSummary.FailedCount, StringFormat='失败: {0}'}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding ResultSummary.AbnormalCount, StringFormat='异常: {0}'}" />
+                                            <TextBlock Margin="0,6,0,0"
                                                        Style="{StaticResource SectionHintStyle}"
-                                                       Text="{Binding FailedCount, StringFormat='失败 {0}'}" />
-                                            <TextBlock Margin="0,2,0,0"
-                                                       Style="{StaticResource SectionHintStyle}"
-                                                       Text="{Binding AbnormalCount, StringFormat='异常 {0}'}" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Style="{StaticResource SectionHintStyle}"
-                                                       Text="{Binding CreatedAt, StringFormat='创建时间 {0:yyyy-MM-dd HH:mm:ss}'}" />
+                                                       Text="{Binding LatestResultSummary}"
+                                                       TextWrapping="Wrap" />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.SelectTaskBatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="批次详情" />
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.NavigateHistoryBatchToMapCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="地图" />
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.NavigateHistoryBatchToPointGovernanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="治理" />
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.NavigateHistoryBatchToReviewCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="复核" />
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.NavigateHistoryBatchToFaultClosureCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="闭环" />
+                                            </WrapPanel>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -217,108 +353,164 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource PanelCardStyle}">
+                <Border Grid.Column="1" Style="{StaticResource PanelCardStyle}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务详情区" />
-                        <TextBlock Margin="0,8,0,12"
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="计划级失败看板" />
+                        <TextBlock Margin="0,8,0,0"
                                    Style="{StaticResource SectionHintStyle}"
-                                   Text="展示子任务列表、当前进度、失败摘要和最近执行记录。" />
+                                   Text="用于快速判断最近失败最多的计划、任务类型和反复失败点位，不做复杂图形展示。" />
 
-                        <Border Style="{StaticResource StatusBadgeBorderStyle}"
-                                BorderBrush="{Binding SelectedTaskAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                HorizontalAlignment="Left">
-                            <TextBlock Foreground="{Binding SelectedTaskAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                       Text="{Binding SelectedTaskStatusText}" />
+                        <Border Margin="0,14,0,0"
+                                Padding="12"
+                                Background="{DynamicResource MetricTileBackgroundBrush}"
+                                BorderBrush="{DynamicResource PanelCardBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource InnerCardCornerRadius}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="失败焦点" />
+                                <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding FailureBoardMostFailedPlanText}" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding FailureBoardMostFailedTaskTypeText}" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding FailureBoardMostRepeatedPointText}" TextWrapping="Wrap" />
+                            </StackPanel>
                         </Border>
 
-                        <Grid Margin="0,16,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="96" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="任务类型" />
-                            <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskTypeText}" />
-
-                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,8,0,0" Style="{StaticResource FieldLabelStyle}" Text="任务范围" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskScopeText}" />
-
-                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,8,0,0" Style="{StaticResource FieldLabelStyle}" Text="巡检方案" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskSchemeText}" />
-
-                            <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,8,0,0" Style="{StaticResource FieldLabelStyle}" Text="创建时间" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskCreatedText}" />
-
-                            <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,8,0,0" Style="{StaticResource FieldLabelStyle}" Text="启动/完成" />
-                            <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskStartedText}" />
-
-                            <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,8,0,0" Style="{StaticResource FieldLabelStyle}" Text="统计" />
-                            <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskCountsText}" />
-                        </Grid>
-
-                        <TextBlock Margin="0,16,0,6" Style="{StaticResource FieldLabelStyle}" Text="当前进度" />
-                        <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTaskProgressText}" />
-
-                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="失败摘要" />
-                        <TextBlock Style="{StaticResource FieldValueStyle}" TextWrapping="Wrap" Text="{Binding SelectedTaskFailureSummary}" />
-
-                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="最近结果摘要" />
-                        <TextBlock Style="{StaticResource FieldValueStyle}" TextWrapping="Wrap" Text="{Binding SelectedTaskLatestSummary}" />
-
-                        <WrapPanel Margin="0,18,0,12">
-                            <Button Style="{StaticResource ActionButtonStyle}"
-                                    Command="{Binding StartSelectedTaskCommand}"
-                                    Content="启动任务" />
-                            <Button Style="{StaticResource ActionButtonStyle}"
-                                    Command="{Binding CancelSelectedTaskCommand}"
-                                    Content="取消未完成" />
-                        </WrapPanel>
-
-                        <TextBlock Margin="0,6,0,8" Style="{StaticResource FieldLabelStyle}" Text="子任务列表" />
-                        <ItemsControl ItemsSource="{Binding DetailItems}">
+                        <TextBlock Margin="0,16,0,6" Style="{StaticResource FieldLabelStyle}" Text="最近失败计划" />
+                        <ItemsControl ItemsSource="{Binding FailurePlanItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource ListItemCardStyle}"
-                                            BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
+                                    <Border Margin="0,0,0,8" Style="{StaticResource ListItemCardStyle}">
                                         <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock FontWeight="SemiBold" Text="{Binding DeviceName}" />
-                                                <TextBlock DockPanel.Dock="Right"
-                                                           Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                           Text="{Binding ExecutionStatusText}" />
-                                            </DockPanel>
-                                            <TextBlock Margin="0,8,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding DeviceCode}" />
-                                            <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding DirectoryPath}" />
-                                            <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Style="{StaticResource SectionHintStyle}" Text="{Binding LastResultSummaryText}" />
-                                            <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource ToneDangerBrush}" Text="{Binding LastErrorText}" />
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding PlanName}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding TaskTypeText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding HeadlineText}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding LastFailedAtText, StringFormat='最近失败: {0}'}" />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.OpenFailedPlanCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="计划详情" />
+                                            </WrapPanel>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Margin="0,18,0,8" Style="{StaticResource FieldLabelStyle}" Text="执行记录" />
-                        <ItemsControl ItemsSource="{Binding ExecutionRecords}">
+                        <TextBlock Margin="0,12,0,6" Style="{StaticResource FieldLabelStyle}" Text="最近失败批次" />
+                        <ItemsControl ItemsSource="{Binding FailureBatchItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource ListItemCardStyle}"
-                                            BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
-                                        <DockPanel>
-                                            <TextBlock TextWrapping="Wrap"
-                                                       FontWeight="SemiBold"
-                                                       Text="{Binding Message}" />
+                                    <Border Margin="0,0,0,8" Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding TaskName}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SourceText}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding OccurredAtText, StringFormat='失败时间: {0}'}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding FailureSummary}" TextWrapping="Wrap" />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.OpenFailedBatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="批次详情" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Margin="0,12,0,6" Style="{StaticResource FieldLabelStyle}" Text="最近失败点位" />
+                        <ItemsControl ItemsSource="{Binding FailurePointItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding DeviceName}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding DeviceCode}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding TaskName}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding FailureReason}" TextWrapping="Wrap" />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.OpenFailedPointCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="智能跳转" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Margin="0,12,0,6" Style="{StaticResource FieldLabelStyle}" Text="失败原因分类" />
+                        <ItemsControl ItemsSource="{Binding FailureReasonItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <DockPanel>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding CategoryName}" />
+                                                <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding AffectedPointCount, StringFormat='影响点位: {0}'}" />
+                                            </StackPanel>
                                             <TextBlock DockPanel.Dock="Right"
-                                                       Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                       Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}" />
+                                                       Style="{StaticResource FieldValueStyle}"
+                                                       Text="{Binding FailedItemCount, StringFormat='失败 {0}'}" />
                                         </DockPanel>
+                                        <WrapPanel Margin="0,10,0,0">
+                                            <Button Style="{StaticResource ActionButtonStyle}"
+                                                    Command="{Binding DataContext.ApplyFailureReasonFilterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="筛选明细" />
+                                        </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Margin="0,12,0,6" Style="{StaticResource FieldLabelStyle}" Text="失败任务类型" />
+                        <ItemsControl ItemsSource="{Binding TaskTypeFailureItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <DockPanel>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding TaskTypeText}" />
+                                                <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding FailedBatchCount, StringFormat='失败批次: {0}'}" />
+                                            </StackPanel>
+                                            <TextBlock DockPanel.Dock="Right"
+                                                       Style="{StaticResource FieldValueStyle}"
+                                                       Text="{Binding FailedItemCount, StringFormat='失败 {0}'}" />
+                                        </DockPanel>
+                                        <WrapPanel Margin="0,10,0,0">
+                                            <Button Style="{StaticResource ActionButtonStyle}"
+                                                    Command="{Binding DataContext.ApplyTaskTypeFilterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Content="筛选任务" />
+                                        </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Margin="0,12,0,6" Style="{StaticResource FieldLabelStyle}" Text="连续失败点位" />
+                        <ItemsControl ItemsSource="{Binding RepeatedFailurePointItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding DeviceName}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding DeviceCode}" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding HeadlineText}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding LatestFailureReason}" TextWrapping="Wrap" />
+                                            <WrapPanel Margin="0,10,0,0">
+                                                <Button Style="{StaticResource ActionButtonStyle}"
+                                                        Command="{Binding DataContext.OpenRepeatedFailurePointCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="进入处理" />
+                                            </WrapPanel>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

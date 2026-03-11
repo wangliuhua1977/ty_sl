@@ -29,6 +29,7 @@ public partial class App : Application
         var mapOptionsProvider = new JsonMapProviderOptionsProvider();
         var tokenCacheRepository = new JsonTokenCacheRepository();
         var aiTaskStore = new JsonAiInspectionTaskStore();
+        var aiTaskPlanStore = new JsonAiInspectionTaskPlanStore();
         var aiAlertStore = new JsonAiAlertStore();
         var deviceAlarmStore = new JsonDeviceAlarmStore();
         var deviceCatalogCacheStore = new JsonDeviceCatalogCacheStore();
@@ -62,6 +63,7 @@ public partial class App : Application
         var cloudPlaybackService = new CloudPlaybackService(optionsProvider, tokenService, openPlatformClient, cloudPlaybackCacheStore);
         var manualCoordinateService = new ManualCoordinateService(manualCoordinateStore);
         var inspectionSelectionService = new InspectionSelectionService();
+        var moduleNavigationService = new InspectionModuleNavigationService();
         var inspectionScopeService = new InspectionScopeService(deviceCatalogService, deviceInspectionService, manualCoordinateService, inspectionScopeStore);
         var faultClosureService = new FaultClosureService(
             faultClosureStore,
@@ -80,6 +82,7 @@ public partial class App : Application
         _recheckSchedulerService.Start();
         _aiInspectionTaskService = new AiInspectionTaskService(
             aiTaskStore,
+            aiTaskPlanStore,
             inspectionScopeService,
             deviceCatalogService,
             deviceInspectionService,
@@ -110,6 +113,8 @@ public partial class App : Application
             deviceInspectionService,
             manualCoordinateService,
             inspectionSelectionService,
+            moduleNavigationService,
+            _aiInspectionTaskService,
             faultClosureService,
             playbackReviewService,
             screenshotSamplingService,
@@ -120,6 +125,8 @@ public partial class App : Application
             deviceInspectionService,
             inspectionScopeService,
             inspectionSelectionService,
+            moduleNavigationService,
+            _aiInspectionTaskService,
             faultClosureService,
             playbackReviewService,
             screenshotSamplingService,
@@ -129,6 +136,8 @@ public partial class App : Application
             reviewCenterService,
             inspectionScopeService,
             inspectionSelectionService,
+            moduleNavigationService,
+            _aiInspectionTaskService,
             playbackReviewService,
             screenshotSamplingService,
             cloudPlaybackService);
@@ -141,6 +150,9 @@ public partial class App : Application
             faultClosureService,
             _recheckSchedulerService,
             inspectionScopeService,
+            inspectionSelectionService,
+            moduleNavigationService,
+            _aiInspectionTaskService,
             deviceCatalogService,
             deviceInspectionService,
             playbackReviewService,
@@ -158,8 +170,10 @@ public partial class App : Application
                 workspaceService,
                 _aiInspectionTaskService,
                 inspectionScopeService,
+                inspectionSelectionService,
                 aiAlertService,
                 deviceAlarmService,
+                moduleNavigationService,
                 mapInspectionPageViewModel,
                 reviewCenterPageViewModel,
                 reportCenterPageViewModel,

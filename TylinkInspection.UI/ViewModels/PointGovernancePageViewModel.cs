@@ -7,7 +7,7 @@ using TylinkInspection.Core.Models;
 
 namespace TylinkInspection.UI.ViewModels;
 
-public sealed class PointGovernancePageViewModel : PageViewModelBase
+public sealed partial class PointGovernancePageViewModel : PageViewModelBase
 {
     private const int PageSize = 20;
     private const string ManualCoordinateSourceText = "人工坐标";
@@ -69,6 +69,8 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         IDeviceInspectionService deviceInspectionService,
         IInspectionScopeService inspectionScopeService,
         IInspectionSelectionService inspectionSelectionService,
+        IInspectionModuleNavigationService moduleNavigationService,
+        IAiInspectionTaskService aiInspectionTaskService,
         IFaultClosureService faultClosureService,
         IPlaybackReviewService playbackReviewService,
         IScreenshotSamplingService screenshotSamplingService,
@@ -81,10 +83,13 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         _deviceInspectionService = deviceInspectionService;
         _inspectionScopeService = inspectionScopeService;
         _inspectionSelectionService = inspectionSelectionService;
+        _moduleNavigationService = moduleNavigationService;
+        _aiInspectionTaskService = aiInspectionTaskService;
         _faultClosureService = faultClosureService;
         _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
         _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
+        _moduleNavigationService.NavigationRequested += OnNavigationRequested;
         _faultClosureService.OverviewChanged += OnFaultClosureChanged;
 
         SummaryCards = new ObservableCollection<OverviewMetric>();
@@ -165,6 +170,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
                 RaisePropertyChanged(nameof(CanInspectSelectedDevice));
                 RaiseClosureDetailChanged();
                 PublishSelectedDevice();
+                RefreshSourceTaskContext(value?.DeviceCode);
             }
         }
     }

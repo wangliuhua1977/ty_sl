@@ -296,6 +296,39 @@
                                 <TextBlock Margin="0,12,0,0" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding SelectedPointNameText}" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedPointCodeText}" />
                                 <TextBlock Margin="0,10,0,0" Style="{StaticResource SectionHintStyle}" TextWrapping="Wrap" Text="{Binding SelectedSummaryText}" />
+                                <Border Margin="0,16,0,0"
+                                        Padding="14"
+                                        Background="{DynamicResource MetricTileBackgroundBrush}"
+                                        BorderBrush="{DynamicResource TonePrimaryBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="来源任务摘要" />
+                                        <TextBlock Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SourceTaskNameText}" TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,4,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding SourceTaskTypeText}" TextWrapping="Wrap" />
+                                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SourceTaskExecutionText}" TextWrapping="Wrap" />
+                                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SourceTaskPlanText}" TextWrapping="Wrap" />
+                                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SourceTaskOriginText}" TextWrapping="Wrap" />
+                                        <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding SourceTaskStatusText}" TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Style="{StaticResource SectionHintStyle}"
+                                                   Text="{Binding SourceTaskPointResultText}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Style="{StaticResource SectionHintStyle}"
+                                                   Text="{Binding SourceTaskFailureText}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Foreground="{DynamicResource ToneWarningBrush}"
+                                                   Text="{Binding TaskContextLocateText}"
+                                                   TextWrapping="Wrap" />
+                                        <Button Margin="0,10,0,0"
+                                                Style="{StaticResource ActionButtonStyle}"
+                                                Command="{Binding ReturnToSourceTaskCommand}"
+                                                IsEnabled="{Binding CanReturnToSourceTask}"
+                                                Content="返回来源任务" />
+                                    </StackPanel>
+                                </Border>
                                 <TextBlock Margin="0,16,0,0" Style="{StaticResource FieldLabelStyle}" Text="工单编号" />
                                 <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedTicketNumber}" />
                                 <WrapPanel Margin="0,14,0,0">
