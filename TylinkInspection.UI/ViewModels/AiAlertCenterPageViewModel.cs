@@ -7,48 +7,57 @@ namespace TylinkInspection.UI.ViewModels;
 
 public sealed class AiAlertCenterPageViewModel : PageViewModelBase
 {
-    private const string AllWorkflowOption = "全部状态";
-    private const string AllSourceOption = "全部来源";
-    private const string AllTypeOption = "全部类型";
-    private const string AllTimeOption = "全部时间";
-    private const string Last6HoursOption = "近6小时";
-    private const string TodayOption = "今日";
-    private const string Last24HoursOption = "近24小时";
+    private const int FocusedAlertType = 3;
+    private const string FocusedAlertTypeName = "\u753b\u9762\u5f02\u5e38\u5de1\u68c0";
+    private const string AllWorkflowOption = "\u5168\u90e8\u72b6\u6001";
+    private const string AllSourceOption = "\u5168\u90e8\u6765\u6e90";
+    private const string AllTimeOption = "\u5168\u90e8\u65f6\u95f4";
+    private const string Last6HoursOption = "\u8fd16\u5c0f\u65f6";
+    private const string TodayOption = "\u4eca\u65e5";
+    private const string Last24HoursOption = "\u8fd124\u5c0f\u65f6";
+    private const int AlertPageSize = 20;
+    private const int RelatedAlarmPageSize = 10;
 
     private static readonly IReadOnlyDictionary<string, int?> AlertSourceMap = new Dictionary<string, int?>
     {
         [AllSourceOption] = null,
-        ["端侧"] = 1,
-        ["云化"] = 2,
-        ["云测-AI能力中台"] = 3,
-        ["平安慧眼"] = 4
+        ["\u7aef\u4fa7"] = 1,
+        ["\u4e91\u5316"] = 2,
+        ["\u4e91\u6d4b-AI\u80fd\u529b\u4e2d\u53f0"] = 3,
+        ["\u5e73\u5b89\u6167\u773c"] = 4
     };
 
     private readonly IAiAlertService _aiAlertService;
     private readonly IDeviceAlarmService _deviceAlarmService;
     private readonly Dictionary<string, int> _alertTypeMap = new(StringComparer.Ordinal);
     private readonly HashSet<string> _loadedAlertIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _loadedRelatedAlarmIds = new(StringComparer.OrdinalIgnoreCase);
 
     private AiAlertListItem? _selectedAlert;
     private AiAlertDetail? _selectedAlertDetail;
     private string? _deviceCode;
     private string _selectedWorkflow = AllWorkflowOption;
     private string _selectedAlertSource = AllSourceOption;
-    private string _selectedAlertType = AllTypeOption;
     private string _selectedTimeRange = Last24HoursOption;
     private string _reviewNote = string.Empty;
-    private string _listStatusText = "尚未查询。";
+    private string _listStatusText = "\u5f53\u524d\u4ec5\u63a5\u5165 AI \u753b\u9762\u5f02\u5e38\u5de1\u68c0\u544a\u8b66\u3002";
     private string _listErrorText = string.Empty;
-    private string _relatedAlarmStatusText = "请选择一条 AI 告警查看关联设备告警。";
+    private string _relatedAlarmStatusText = "\u8bf7\u9009\u62e9\u4e00\u6761\u753b\u9762\u5f02\u5e38\u5de1\u68c0\u544a\u8b66\u67e5\u770b\u5173\u8054\u8bbe\u5907\u544a\u8b66\u3002";
     private string _relatedAlarmErrorText = string.Empty;
     private bool _isBusy;
     private bool _hasMoreAlerts = true;
+    private bool _hasMoreRelatedAlarms;
     private int _nextPageNo = 1;
+    private int _nextRelatedAlarmPageNo = 1;
     private DateTimeOffset? _lastSeenTime;
+    private DateTimeOffset? _lastRelatedAlarmSeenTime;
     private string? _lastSeenId;
+    private string? _lastRelatedAlarmSeenId;
 
     public AiAlertCenterPageViewModel(IAiAlertService aiAlertService, IDeviceAlarmService deviceAlarmService)
-        : base("AI告警中心", "接入真实 AI 告警列表、筛选、分页续翻和本地状态流转；右侧保留详情与本地复核备注。")
+        : base(
+            "AI\u544a\u8b66\u4e2d\u5fc3",
+            "\u5f53\u524d\u63a5\u5165 AI \u753b\u9762\u5f02\u5e38\u5de1\u68c0\u544a\u8b66\uff0c\u4ec5\u5c55\u793a\u4e0e\u6162\u76f4\u64ad\u8fd0\u7ef4\u5de1\u68c0\u76f8\u5173\u7684\u753b\u9762\u5f02\u5e38\u6d88\u606f\u3002\u540e\u7eed\u5982\u9700\u6269\u5c55\u5176\u4ed6 AI \u7c7b\u578b\uff0c\u518d\u6309\u6a21\u5757\u9010\u6b65\u63a5\u5165\u3002")
     {
         _aiAlertService = aiAlertService;
         _deviceAlarmService = deviceAlarmService;
@@ -64,7 +73,8 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         ];
 
         AlertSourceOptions = new ObservableCollection<string>(AlertSourceMap.Keys);
-        AlertTypeOptions = new ObservableCollection<string> { AllTypeOption };
+        _alertTypeMap[FocusedAlertTypeName] = FocusedAlertType;
+        AlertTypeOptions = new ObservableCollection<string> { FocusedAlertTypeName };
         TimeRangeOptions =
         [
             AllTimeOption,
@@ -80,6 +90,7 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         SearchCommand = new RelayCommand<object?>(_ => _ = RefreshAsync());
         RefreshCommand = new RelayCommand<object?>(_ => _ = RefreshAsync());
         LoadMoreCommand = new RelayCommand<object?>(_ => _ = LoadMoreAsync());
+        LoadMoreRelatedAlarmsCommand = new RelayCommand<object?>(_ => _ = LoadMoreRelatedAlarmsAsync());
         ClearFilterCommand = new RelayCommand<object?>(_ => ClearFilters());
         UpdateWorkflowCommand = new RelayCommand<string>(status => UpdateWorkflow(status));
 
@@ -116,12 +127,6 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
     {
         get => _selectedAlertSource;
         set => SetProperty(ref _selectedAlertSource, value);
-    }
-
-    public string SelectedAlertType
-    {
-        get => _selectedAlertType;
-        set => SetProperty(ref _selectedAlertType, value);
     }
 
     public string SelectedTimeRange
@@ -202,11 +207,25 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         }
     }
 
-    public string LoadMoreButtonText => HasMoreAlerts ? "加载更多" : "没有更多数据";
+    public bool HasMoreRelatedAlarms
+    {
+        get => _hasMoreRelatedAlarms;
+        private set
+        {
+            if (SetProperty(ref _hasMoreRelatedAlarms, value))
+            {
+                RaisePropertyChanged(nameof(LoadMoreRelatedAlarmsButtonText));
+            }
+        }
+    }
+
+    public string LoadMoreButtonText => HasMoreAlerts ? "\u52a0\u8f7d\u66f4\u591a" : "\u6ca1\u6709\u66f4\u591a\u6570\u636e";
+
+    public string LoadMoreRelatedAlarmsButtonText => HasMoreRelatedAlarms ? "\u52a0\u8f7d\u66f4\u591a\u5173\u8054\u544a\u8b66" : "\u5173\u8054\u544a\u8b66\u5df2\u52a0\u8f7d\u5b8c";
 
     public string SelectedAlertAccentResourceKey => SelectedAlert?.AccentResourceKey ?? "ToneWarningBrush";
 
-    public string SelectedAlertWorkflowText => SelectedAlertDetail?.WorkflowStatus ?? "未选择告警";
+    public string SelectedAlertWorkflowText => SelectedAlertDetail?.WorkflowStatus ?? "\u672a\u9009\u62e9\u544a\u8b66";
 
     public string SelectedAlertTimeText
     {
@@ -214,16 +233,16 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         {
             if (SelectedAlertDetail is null)
             {
-                return "请选择左侧告警查看时间信息。";
+                return "\u8bf7\u9009\u62e9\u5de6\u4fa7\u544a\u8b66\u67e5\u770b\u65f6\u95f4\u4fe1\u606f\u3002";
             }
 
-            return $"告警时间 {SelectedAlertDetail.CreateTime:MM-dd HH:mm:ss} / 更新时间 {FormatTime(SelectedAlertDetail.UpdateTime)}";
+            return $"\u544a\u8b66\u65f6\u95f4 {SelectedAlertDetail.CreateTime:MM-dd HH:mm:ss} / \u66f4\u65b0\u65f6\u95f4 {FormatTime(SelectedAlertDetail.UpdateTime)}";
         }
     }
 
     public string SelectedAlertPlatformStatusText => SelectedAlertDetail?.PlatformStatusText ?? "--";
 
-    public string SelectedAlertSummaryText => SelectedAlertDetail?.Summary ?? "暂无摘要。";
+    public string SelectedAlertSummaryText => SelectedAlertDetail?.Summary ?? "\u6682\u65e0\u6458\u8981\u3002";
 
     public ICommand SearchCommand { get; }
 
@@ -231,13 +250,15 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
 
     public ICommand LoadMoreCommand { get; }
 
+    public ICommand LoadMoreRelatedAlarmsCommand { get; }
+
     public ICommand ClearFilterCommand { get; }
 
     public ICommand UpdateWorkflowCommand { get; }
 
     private async Task RefreshAsync()
     {
-        ResetPagingState();
+        ResetAlertPagingState();
         AlertItems.Clear();
         _loadedAlertIds.Clear();
         ListErrorText = string.Empty;
@@ -266,7 +287,6 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         {
             var query = BuildQuery();
             var result = await Task.Run(() => _aiAlertService.Query(query));
-            MergeAlertTypeOptions(result.Items);
             AppendVisibleItems(result.Items);
 
             _nextPageNo = result.PageNo + 1;
@@ -275,7 +295,7 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
             HasMoreAlerts = result.HasMore;
 
             RebuildSummary(AlertItems.ToList());
-            ListStatusText = BuildListStatusText(result);
+            ListStatusText = BuildListStatusText(result, AlertItems.Count);
             ListErrorText = string.Empty;
 
             var selectedId = resetSelection ? null : SelectedAlert?.Id;
@@ -285,7 +305,7 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         catch (Exception ex)
         {
             ListErrorText = BuildErrorText(ex);
-            ListStatusText = AlertItems.Count == 0 ? "查询失败。" : "列表已保留当前缓存结果。";
+            ListStatusText = AlertItems.Count == 0 ? "\u67e5\u8be2\u5931\u8d25\u3002" : "\u5217\u8868\u5df2\u4fdd\u7559\u5f53\u524d\u7f13\u5b58\u7ed3\u679c\u3002";
         }
         finally
         {
@@ -300,27 +320,40 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         {
             DeviceCode = string.IsNullOrWhiteSpace(DeviceCode) ? null : DeviceCode.Trim(),
             AlertSource = AlertSourceMap[SelectedAlertSource],
-            AlertTypes = SelectedAlertType == AllTypeOption || !_alertTypeMap.TryGetValue(SelectedAlertType, out var alertType)
-                ? Array.Empty<int>()
-                : new[] { alertType },
+            AlertTypes = new[] { FocusedAlertType },
             StartTime = startTime,
             EndTime = endTime,
             PageNo = _nextPageNo,
-            PageSize = 20,
+            PageSize = AlertPageSize,
             LastSeenTime = _lastSeenTime,
             LastSeenId = _lastSeenId
         };
     }
 
-    private void ResetPagingState()
+    private void ResetAlertPagingState()
     {
         _nextPageNo = 1;
         _lastSeenTime = null;
         _lastSeenId = null;
         HasMoreAlerts = true;
-        ListStatusText = "正在查询...";
+        ListStatusText = "\u6b63\u5728\u67e5\u8be2...";
+        ResetRelatedAlarmState(clearItems: true);
+    }
+
+    private void ResetRelatedAlarmState(bool clearItems)
+    {
+        _nextRelatedAlarmPageNo = 1;
+        _lastRelatedAlarmSeenTime = null;
+        _lastRelatedAlarmSeenId = null;
+        _loadedRelatedAlarmIds.Clear();
+        HasMoreRelatedAlarms = false;
         RelatedAlarmErrorText = string.Empty;
-        RelatedAlarmStatusText = "请选择一条 AI 告警查看关联设备告警。";
+        RelatedAlarmStatusText = "\u8bf7\u9009\u62e9\u4e00\u6761\u753b\u9762\u5f02\u5e38\u5de1\u68c0\u544a\u8b66\u67e5\u770b\u5173\u8054\u8bbe\u5907\u544a\u8b66\u3002";
+
+        if (clearItems)
+        {
+            RelatedDeviceAlarms.Clear();
+        }
     }
 
     private void ClearFilters()
@@ -328,23 +361,8 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         DeviceCode = string.Empty;
         SelectedWorkflow = AllWorkflowOption;
         SelectedAlertSource = AllSourceOption;
-        SelectedAlertType = AllTypeOption;
         SelectedTimeRange = Last24HoursOption;
         _ = RefreshAsync();
-    }
-
-    private void MergeAlertTypeOptions(IEnumerable<AiAlertListItem> items)
-    {
-        foreach (var item in items.OrderBy(item => item.AlertTypeName, StringComparer.Ordinal))
-        {
-            if (_alertTypeMap.ContainsKey(item.AlertTypeName))
-            {
-                continue;
-            }
-
-            _alertTypeMap[item.AlertTypeName] = item.AlertType;
-            AlertTypeOptions.Add(item.AlertTypeName);
-        }
     }
 
     private void AppendVisibleItems(IEnumerable<AiAlertListItem> items)
@@ -364,54 +382,83 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         {
             SelectedAlertDetail = null;
             ReviewNote = string.Empty;
-            RelatedDeviceAlarms.Clear();
-            RelatedAlarmStatusText = "请选择一条 AI 告警查看关联设备告警。";
-            RelatedAlarmErrorText = string.Empty;
+            ResetRelatedAlarmState(clearItems: true);
             RaiseSelectionProperties();
             return;
         }
 
         SelectedAlertDetail = _aiAlertService.GetDetail(SelectedAlert.Id);
         ReviewNote = SelectedAlertDetail?.ReviewNote ?? string.Empty;
-        await LoadRelatedDeviceAlarmsAsync();
+        await LoadRelatedDeviceAlarmsAsync(reset: true);
     }
 
-    private async Task LoadRelatedDeviceAlarmsAsync()
+    private async Task LoadMoreRelatedAlarmsAsync()
     {
-        RelatedDeviceAlarms.Clear();
-        RelatedAlarmErrorText = string.Empty;
+        if (!HasMoreRelatedAlarms || SelectedAlertDetail is null)
+        {
+            return;
+        }
 
+        await LoadRelatedDeviceAlarmsAsync(reset: false);
+    }
+
+    private async Task LoadRelatedDeviceAlarmsAsync(bool reset)
+    {
         if (SelectedAlertDetail is null)
         {
-            RelatedAlarmStatusText = "未找到本地详情缓存。";
+            RelatedAlarmStatusText = "\u672a\u627e\u5230\u672c\u5730\u8be6\u60c5\u7f13\u5b58\u3002";
+            RelatedAlarmErrorText = string.Empty;
+            HasMoreRelatedAlarms = false;
             return;
+        }
+
+        if (reset)
+        {
+            ResetRelatedAlarmState(clearItems: true);
+            RelatedAlarmStatusText = "\u6b63\u5728\u52a0\u8f7d\u5173\u8054\u8bbe\u5907\u544a\u8b66...";
         }
 
         try
         {
-            var result = await Task.Run(() => _deviceAlarmService.Query(new DeviceAlarmQuery
-            {
-                DeviceCode = SelectedAlertDetail.DeviceCode,
-                StartTime = SelectedAlertDetail.CreateTime.AddDays(-1),
-                EndTime = DateTimeOffset.Now,
-                PageNo = 1,
-                PageSize = 10
-            }));
+            var result = await Task.Run(() => _deviceAlarmService.Query(BuildRelatedAlarmQuery()));
 
             foreach (var deviceAlarm in result.Items)
             {
-                RelatedDeviceAlarms.Add(deviceAlarm);
+                if (_loadedRelatedAlarmIds.Add(deviceAlarm.Id))
+                {
+                    RelatedDeviceAlarms.Add(deviceAlarm);
+                }
             }
 
+            _nextRelatedAlarmPageNo = result.PageNo + 1;
+            _lastRelatedAlarmSeenTime = result.LastSeenTime;
+            _lastRelatedAlarmSeenId = result.LastSeenId;
+            HasMoreRelatedAlarms = result.HasMore;
+            RelatedAlarmErrorText = string.Empty;
             RelatedAlarmStatusText = RelatedDeviceAlarms.Count == 0
-                ? "当前设备在选定时间窗口内没有普通设备告警。"
-                : $"已加载 {RelatedDeviceAlarms.Count} 条关联设备告警。";
+                ? "\u5f53\u524d\u8bbe\u5907\u5728\u9009\u5b9a\u65f6\u95f4\u7a97\u53e3\u5185\u6ca1\u6709\u666e\u901a\u8bbe\u5907\u544a\u8b66\u3002"
+                : BuildRelatedAlarmStatusText(result, RelatedDeviceAlarms.Count);
         }
         catch (Exception ex)
         {
             RelatedAlarmErrorText = BuildErrorText(ex);
-            RelatedAlarmStatusText = "关联设备告警查询失败。";
+            RelatedAlarmStatusText = "\u5173\u8054\u8bbe\u5907\u544a\u8b66\u67e5\u8be2\u5931\u8d25\u3002";
+            HasMoreRelatedAlarms = false;
         }
+    }
+
+    private DeviceAlarmQuery BuildRelatedAlarmQuery()
+    {
+        return new DeviceAlarmQuery
+        {
+            DeviceCode = SelectedAlertDetail?.DeviceCode,
+            StartTime = SelectedAlertDetail?.CreateTime.AddDays(-1),
+            EndTime = DateTimeOffset.Now,
+            PageNo = _nextRelatedAlarmPageNo,
+            PageSize = RelatedAlarmPageSize,
+            LastSeenTime = _lastRelatedAlarmSeenTime,
+            LastSeenId = _lastRelatedAlarmSeenId
+        };
     }
 
     private void UpdateWorkflow(string? workflowStatus)
@@ -472,10 +519,10 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
     {
         var summaryCards = new[]
         {
-            BuildSummary("待确认", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.PendingConfirm), "ToneWarningBrush"),
-            BuildSummary("已确认", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.Confirmed), "TonePrimaryBrush"),
-            BuildSummary("已派单", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.Dispatched), "ToneDangerBrush"),
-            BuildSummary("已恢复", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.Recovered), "ToneSuccessBrush")
+            BuildSummary("\u5f85\u786e\u8ba4", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.PendingConfirm), "ToneWarningBrush"),
+            BuildSummary("\u5df2\u786e\u8ba4", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.Confirmed), "TonePrimaryBrush"),
+            BuildSummary("\u5df2\u6d3e\u5355", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.Dispatched), "ToneDangerBrush"),
+            BuildSummary("\u5df2\u6062\u590d", items.Count(item => item.WorkflowStatus == AiAlertWorkflowStatus.Recovered), "ToneSuccessBrush")
         };
 
         SummaryCards.Clear();
@@ -500,16 +547,22 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         {
             Label = label,
             Value = value.ToString(),
-            Unit = "条",
-            DeltaText = "本地处理状态",
+            Unit = "\u6761",
+            DeltaText = "\u672c\u5730\u5904\u7406\u72b6\u6001",
             AccentResourceKey = accentResourceKey
         };
     }
 
-    private static string BuildListStatusText(ScrollQueryResult<AiAlertListItem> result)
+    private static string BuildListStatusText(ScrollQueryResult<AiAlertListItem> result, int loadedCount)
     {
-        var totalText = result.TotalCount.HasValue ? $" / 平台总数 {result.TotalCount.Value}" : string.Empty;
-        return $"当前页 {result.PageNo}，本次加载 {result.Items.Count} 条{totalText}";
+        var totalText = result.TotalCount.HasValue ? $" / \u5e73\u53f0\u603b\u6570 {result.TotalCount.Value}" : string.Empty;
+        return $"\u5f53\u524d\u9875 {result.PageNo}\uff0c\u672c\u6b21\u52a0\u8f7d {result.Items.Count} \u6761\uff0c\u5217\u8868\u7d2f\u79ef {loadedCount} \u6761{totalText}";
+    }
+
+    private static string BuildRelatedAlarmStatusText(ScrollQueryResult<DeviceAlarmListItem> result, int loadedCount)
+    {
+        var totalText = result.TotalCount.HasValue ? $" / \u5e73\u53f0\u603b\u6570 {result.TotalCount.Value}" : string.Empty;
+        return $"\u5173\u8054\u544a\u8b66\u5df2\u52a0\u8f7d {loadedCount} \u6761\uff0c\u672c\u6b21 {result.Items.Count} \u6761{totalText}";
     }
 
     private static string BuildErrorText(Exception exception)
@@ -518,10 +571,10 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
         {
             var categoryText = platformException.Category switch
             {
-                PlatformErrorCategory.Token => "Token 错误",
-                PlatformErrorCategory.Parameter => "参数或配置错误",
-                PlatformErrorCategory.Platform => "平台返回错误",
-                _ => "未知错误"
+                PlatformErrorCategory.Token => "Token \u9519\u8bef",
+                PlatformErrorCategory.Parameter => "\u53c2\u6570\u6216\u914d\u7f6e\u9519\u8bef",
+                PlatformErrorCategory.Platform => "\u5e73\u53f0\u8fd4\u56de\u9519\u8bef",
+                _ => "\u672a\u77e5\u9519\u8bef"
             };
 
             return string.IsNullOrWhiteSpace(platformException.ErrorCode)
@@ -529,7 +582,7 @@ public sealed class AiAlertCenterPageViewModel : PageViewModelBase
                 : $"{categoryText} [{platformException.ErrorCode}]: {platformException.Message}";
         }
 
-        return $"未知错误: {exception.Message}";
+        return $"\u672a\u77e5\u9519\u8bef: {exception.Message}";
     }
 
     private static string MapAccent(string workflowStatus)

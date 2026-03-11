@@ -1,0 +1,107 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="PanelShadowColor">#9CB3CC</Color>
+
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#EFF4F9" />
+    <SolidColorBrush x:Key="ShellBackgroundBrush" Color="#F7FAFD" />
+    <SolidColorBrush x:Key="ShellBorderBrush" Color="#D2DDEA" />
+    <SolidColorBrush x:Key="TopBarBackgroundBrush" Color="#F9FBFE" />
+    <SolidColorBrush x:Key="TopBarBorderBrush" Color="#D1DEEC" />
+    <SolidColorBrush x:Key="PanelCardBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PanelCardBorderBrush" Color="#D5E0EC" />
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#223447" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#66788B" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#8A99A8" />
+
+    <SolidColorBrush x:Key="TonePrimaryBrush" Color="#1B6FD6" />
+    <SolidColorBrush x:Key="ToneSuccessBrush" Color="#3B8D68" />
+    <SolidColorBrush x:Key="ToneWarningBrush" Color="#C48732" />
+    <SolidColorBrush x:Key="ToneDangerBrush" Color="#C46057" />
+    <SolidColorBrush x:Key="ToneInfoBrush" Color="#4887C8" />
+    <SolidColorBrush x:Key="ToneFocusBrush" Color="#6B75CA" />
+    <SolidColorBrush x:Key="MarkerNormalGlowBrush" Color="#363B8D68" />
+    <SolidColorBrush x:Key="MarkerAbnormalGlowBrush" Color="#36C48732" />
+    <SolidColorBrush x:Key="MarkerReviewGlowBrush" Color="#364887C8" />
+    <SolidColorBrush x:Key="MarkerFocusGlowBrush" Color="#366B75CA" />
+
+    <SolidColorBrush x:Key="NavigationHoverBackgroundBrush" Color="#EDF4FF" />
+    <SolidColorBrush x:Key="NavigationSelectedBackgroundBrush" Color="#E0ECFF" />
+    <SolidColorBrush x:Key="NavigationSelectedBorderBrush" Color="#1B6FD6" />
+    <SolidColorBrush x:Key="SelectionCardBackgroundBrush" Color="#F7FAFE" />
+    <SolidColorBrush x:Key="SelectionCardBorderBrush" Color="#D7E3EF" />
+    <SolidColorBrush x:Key="SelectionCardHoverBackgroundBrush" Color="#EEF5FF" />
+    <SolidColorBrush x:Key="SelectionCardHoverBorderBrush" Color="#9EBFE5" />
+    <SolidColorBrush x:Key="SelectionCardSelectedBackgroundBrush" Color="#E4EFFF" />
+    <SolidColorBrush x:Key="SelectionCardSelectedBorderBrush" Color="#1B6FD6" />
+    <SolidColorBrush x:Key="WindowControlBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="WindowControlBorderBrush" Color="#D0DCE8" />
+    <SolidColorBrush x:Key="WindowControlHoverBackgroundBrush" Color="#EAF3FF" />
+    <SolidColorBrush x:Key="MiniBadgeBackgroundBrush" Color="#F2F6FB" />
+    <SolidColorBrush x:Key="MiniBadgeBorderBrush" Color="#D1DEEC" />
+    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#B8C9DB" />
+    <SolidColorBrush x:Key="ActionButtonBackgroundBrush" Color="#E4F0FF" />
+    <SolidColorBrush x:Key="ActionButtonBorderBrush" Color="#97B9E3" />
+    <SolidColorBrush x:Key="ActionButtonHoverBackgroundBrush" Color="#D8E9FF" />
+    <SolidColorBrush x:Key="ActionButtonForegroundBrush" Color="#155CB8" />
+    <SolidColorBrush x:Key="ListItemBackgroundBrush" Color="#FAFCFE" />
+    <SolidColorBrush x:Key="ListItemHoverBackgroundBrush" Color="#F1F7FF" />
+    <SolidColorBrush x:Key="ListItemBorderBrush" Color="#D9E4EF" />
+    <SolidColorBrush x:Key="ListItemSelectedBackgroundBrush" Color="#E6F0FF" />
+    <SolidColorBrush x:Key="ListItemSelectedBorderBrush" Color="#1B6FD6" />
+    <SolidColorBrush x:Key="TaskCountBadgeBackgroundBrush" Color="#E4EEFF" />
+    <SolidColorBrush x:Key="FilterBadgeBackgroundBrush" Color="#EEF4FA" />
+    <SolidColorBrush x:Key="AlertItemBackgroundBrush" Color="#FAFCFE" />
+    <SolidColorBrush x:Key="MetricTileBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="InfoBadgeBackgroundBrush" Color="#EDF4FF" />
+    <SolidColorBrush x:Key="MapLegendBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="MapFooterBadgeBackgroundBrush" Color="#F1F6FC" />
+    <SolidColorBrush x:Key="AssistantChipBackgroundBrush" Color="#EAF3FF" />
+    <SolidColorBrush x:Key="AssistantPanelBackgroundBrush" Color="#F5F9FF" />
+    <SolidColorBrush x:Key="AssistantPanelBorderBrush" Color="#D5E1EF" />
+    <SolidColorBrush x:Key="TaskProgressBackgroundBrush" Color="#EAF0F7" />
+    <SolidColorBrush x:Key="TodoCardBackgroundBrush" Color="#F9FBFD" />
+    <SolidColorBrush x:Key="MapOverlayLabelBackgroundBrush" Color="#F7FFFFFF" />
+
+    <LinearGradientBrush x:Key="MapSurfaceBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#FDFEFF" />
+        <GradientStop Offset="0.45" Color="#F5F9FD" />
+        <GradientStop Offset="1" Color="#EDF3F9" />
+    </LinearGradientBrush>
+
+    <SolidColorBrush x:Key="MapBorderBrush" Color="#CFDDEA" />
+    <SolidColorBrush x:Key="MapPathPrimaryBrush" Color="#7B9EC6" />
+    <SolidColorBrush x:Key="MapPathSecondaryBrush" Color="#A4BDD9" />
+    <SolidColorBrush x:Key="MapRegionFillBrush" Color="#E7F0F9" />
+    <SolidColorBrush x:Key="MapRegionBorderBrush" Color="#9BB9D6" />
+    <SolidColorBrush x:Key="MapInnerRegionFillBrush" Color="#DDEAF7" />
+    <SolidColorBrush x:Key="MapInnerRegionBorderBrush" Color="#83A6CB" />
+    <SolidColorBrush x:Key="MapMarkerStrokeBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="RadarPrimaryStrokeBrush" Color="#C3D4E6" />
+    <SolidColorBrush x:Key="RadarSecondaryStrokeBrush" Color="#D5E1ED" />
+    <SolidColorBrush x:Key="RadarMidStrokeBrush" Color="#B9CCE1" />
+    <SolidColorBrush x:Key="RadarInnerStrokeBrush" Color="#ACC2DA" />
+    <SolidColorBrush x:Key="RadarSweepBrush" Color="#1B6FD6" />
+
+    <DrawingBrush x:Key="MapGridBrush"
+                  TileMode="Tile"
+                  Viewport="0,0,40,40"
+                  ViewportUnits="Absolute"
+                  Stretch="None">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="Transparent">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#D8E4F0" Thickness="1" />
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <LineGeometry StartPoint="0,0" EndPoint="40,0" />
+                            <LineGeometry StartPoint="0,0" EndPoint="0,40" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+</ResourceDictionary>

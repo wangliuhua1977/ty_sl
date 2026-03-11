@@ -35,7 +35,7 @@ public sealed class OpenPlatformClient : IOpenPlatformClient
         if (code != 0)
         {
             throw new OpenPlatformException(
-                string.IsNullOrWhiteSpace(message) ? "平台返回失败响应。" : message,
+                string.IsNullOrWhiteSpace(message) ? "\u5e73\u53f0\u8fd4\u56de\u5931\u8d25\u54cd\u5e94\u3002" : message,
                 code.ToString());
         }
 

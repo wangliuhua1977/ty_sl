@@ -43,8 +43,12 @@
     <SolidColorBrush x:Key="ActionButtonBackgroundBrush" Color="#12314B" />
     <SolidColorBrush x:Key="ActionButtonBorderBrush" Color="#2E5E86" />
     <SolidColorBrush x:Key="ActionButtonHoverBackgroundBrush" Color="#184368" />
+    <SolidColorBrush x:Key="ActionButtonForegroundBrush" Color="#EAF4FF" />
     <SolidColorBrush x:Key="ListItemBackgroundBrush" Color="#0B1A2B" />
+    <SolidColorBrush x:Key="ListItemHoverBackgroundBrush" Color="#102338" />
     <SolidColorBrush x:Key="ListItemBorderBrush" Color="#24445F" />
+    <SolidColorBrush x:Key="ListItemSelectedBackgroundBrush" Color="#12355C" />
+    <SolidColorBrush x:Key="ListItemSelectedBorderBrush" Color="#3DA8FF" />
     <SolidColorBrush x:Key="TaskCountBadgeBackgroundBrush" Color="#173759" />
     <SolidColorBrush x:Key="FilterBadgeBackgroundBrush" Color="#132940" />
     <SolidColorBrush x:Key="AlertItemBackgroundBrush" Color="#0C1A2A" />
@@ -72,6 +76,7 @@
     <SolidColorBrush x:Key="MapRegionBorderBrush" Color="#1D4C73" />
     <SolidColorBrush x:Key="MapInnerRegionFillBrush" Color="#0F2A43" />
     <SolidColorBrush x:Key="MapInnerRegionBorderBrush" Color="#275B84" />
+    <SolidColorBrush x:Key="MapMarkerStrokeBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="RadarPrimaryStrokeBrush" Color="#234B6E" />
     <SolidColorBrush x:Key="RadarSecondaryStrokeBrush" Color="#173B5A" />
     <SolidColorBrush x:Key="RadarMidStrokeBrush" Color="#1B3F60" />

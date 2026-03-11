@@ -4,6 +4,8 @@ public sealed class SelectionItemViewModel : ObservableObject
 {
     private bool _isSelected;
 
+    public string? Key { get; init; }
+
     public required string Title { get; init; }
 
     public string? Subtitle { get; init; }

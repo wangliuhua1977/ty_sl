@@ -4,6 +4,7 @@ using TylinkInspection.Core.Configuration;
 using TylinkInspection.Core.Contracts;
 using TylinkInspection.Core.Models;
 using TylinkInspection.Core.Utilities;
+using TylinkInspection.UI.Theming;
 
 namespace TylinkInspection.UI.ViewModels;
 
@@ -12,6 +13,8 @@ public sealed class SystemSettingsPageViewModel : PageViewModelBase
     private readonly IOpenPlatformOptionsProvider _optionsProvider;
     private readonly IPlatformConnectionService _platformConnectionService;
     private readonly ITokenService _tokenService;
+    private readonly IThemeService _themeService;
+    private readonly IThemePreferenceStore _themePreferenceStore;
 
     private string _baseUrl = "--";
     private string _maskedAppId = "--";
@@ -28,6 +31,9 @@ public sealed class SystemSettingsPageViewModel : PageViewModelBase
     private string _configurationSourceSummary = "--";
     private string _sharedSettingsPath = "--";
     private string _localSettingsPath = "--";
+    private string _currentThemeDisplayName = "--";
+    private string _themePreferenceStatusText = "\u5c1a\u672a\u521d\u59cb\u5316\u4e3b\u9898\u504f\u597d\u3002";
+    private string _themePreferenceAccentResourceKey = "ToneInfoBrush";
     private string _tokenStatusSummary = "\u5c1a\u672a\u8bfb\u53d6 Token \u72b6\u6001\u3002";
     private string _maskedAccessToken = "--";
     private string _maskedRefreshToken = "--";
@@ -44,19 +50,27 @@ public sealed class SystemSettingsPageViewModel : PageViewModelBase
     public SystemSettingsPageViewModel(
         IOpenPlatformOptionsProvider optionsProvider,
         IPlatformConnectionService platformConnectionService,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IThemeService themeService,
+        IThemePreferenceStore themePreferenceStore)
         : base(
             "\u7cfb\u7edf\u8bbe\u7f6e",
-            "\u5f53\u524d\u9875\u7528\u4e8e\u67e5\u770b\u5e73\u53f0\u914d\u7f6e\u3001Token \u72b6\u6001\u548c\u8fde\u63a5\u8bca\u65ad\u4fe1\u606f\u3002")
+            "\u5f53\u524d\u9875\u7528\u4e8e\u67e5\u770b\u5e73\u53f0\u914d\u7f6e\u3001Token \u72b6\u6001\u3001\u8fde\u63a5\u8bca\u65ad\u548c\u754c\u9762\u4e3b\u9898\u8bbe\u7f6e\u3002")
     {
         _optionsProvider = optionsProvider;
         _platformConnectionService = platformConnectionService;
         _tokenService = tokenService;
+        _themeService = themeService;
+        _themePreferenceStore = themePreferenceStore;
 
+        ThemeOptions = new ObservableCollection<ThemeOptionViewModel>();
         DiagnosticMessages = new ObservableCollection<string>();
+
+        SelectThemeCommand = new RelayCommand<ThemeOptionViewModel>(SelectTheme);
         TestConnectionCommand = new RelayCommand<object?>(_ => _ = TestConnectionAsync());
         RefreshTokenCommand = new RelayCommand<object?>(_ => _ = RefreshTokenAsync());
 
+        InitializeThemeOptions();
         ReloadSnapshot();
     }
 
@@ -150,6 +164,24 @@ public sealed class SystemSettingsPageViewModel : PageViewModelBase
         private set => SetProperty(ref _localSettingsPath, value);
     }
 
+    public string CurrentThemeDisplayName
+    {
+        get => _currentThemeDisplayName;
+        private set => SetProperty(ref _currentThemeDisplayName, value);
+    }
+
+    public string ThemePreferenceStatusText
+    {
+        get => _themePreferenceStatusText;
+        private set => SetProperty(ref _themePreferenceStatusText, value);
+    }
+
+    public string ThemePreferenceAccentResourceKey
+    {
+        get => _themePreferenceAccentResourceKey;
+        private set => SetProperty(ref _themePreferenceAccentResourceKey, value);
+    }
+
     public string TokenStatusSummary
     {
         get => _tokenStatusSummary;
@@ -232,11 +264,34 @@ public sealed class SystemSettingsPageViewModel : PageViewModelBase
         ? "\u6b63\u5728\u6267\u884c\u5e73\u53f0\u8bca\u65ad\uff0c\u8bf7\u7a0d\u5019..."
         : "\u53ef\u6267\u884c\u8fde\u63a5\u6d4b\u8bd5\u6216\u624b\u52a8\u5237\u65b0 Token\u3002";
 
+    public ObservableCollection<ThemeOptionViewModel> ThemeOptions { get; }
+
     public ObservableCollection<string> DiagnosticMessages { get; }
+
+    public ICommand SelectThemeCommand { get; }
 
     public ICommand TestConnectionCommand { get; }
 
     public ICommand RefreshTokenCommand { get; }
+
+    private void InitializeThemeOptions()
+    {
+        ThemeOptions.Clear();
+        foreach (var theme in _themeService.GetThemes())
+        {
+            ThemeOptions.Add(new ThemeOptionViewModel
+            {
+                Kind = theme.Kind,
+                DisplayName = theme.DisplayName,
+                Description = theme.Description,
+                IsImplemented = theme.IsImplemented,
+                IsSelected = theme.Kind == _themeService.CurrentTheme.Kind
+            });
+        }
+
+        ApplyThemeSelectionState(_themeService.CurrentTheme.Kind);
+        ApplyThemePreferenceHint(_themePreferenceStore.Load());
+    }
 
     private void ReloadSnapshot()
     {
@@ -244,6 +299,78 @@ public sealed class SystemSettingsPageViewModel : PageViewModelBase
         ApplyConfiguration(options);
         ApplyTokenState(_tokenService.GetTokenState());
         ApplyInitialHint(options);
+    }
+
+    private void SelectTheme(ThemeOptionViewModel? themeOption)
+    {
+        if (themeOption is null || !themeOption.IsImplemented)
+        {
+            return;
+        }
+
+        try
+        {
+            if (themeOption.Kind != _themeService.CurrentTheme.Kind)
+            {
+                _themeService.ApplyTheme(themeOption.Kind);
+            }
+
+            ApplyThemeSelectionState(themeOption.Kind);
+        }
+        catch (Exception ex)
+        {
+            ThemePreferenceStatusText = $"\u4e3b\u9898\u5207\u6362\u5931\u8d25\uff1a{ex.Message}";
+            ThemePreferenceAccentResourceKey = "ToneDangerBrush";
+            return;
+        }
+
+        try
+        {
+            _themePreferenceStore.Save(new ThemePreference
+            {
+                ThemeKey = ThemePreferenceMapper.ToStorageKey(themeOption.Kind),
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+
+            ThemePreferenceStatusText = $"\u5df2\u5207\u6362\u4e3a\u300c{themeOption.DisplayName}\u300d\uff0c\u5e76\u5199\u5165\u672c\u5730\u4e3b\u9898\u504f\u597d\u3002";
+            ThemePreferenceAccentResourceKey = "ToneSuccessBrush";
+        }
+        catch (Exception ex)
+        {
+            ThemePreferenceStatusText = $"\u5df2\u5207\u6362\u4e3a\u300c{themeOption.DisplayName}\u300d\uff0c\u4f46\u672c\u5730\u504f\u597d\u4fdd\u5b58\u5931\u8d25\uff1a{ex.Message}";
+            ThemePreferenceAccentResourceKey = "ToneWarningBrush";
+        }
+    }
+
+    private void ApplyThemeSelectionState(ThemeKind currentThemeKind)
+    {
+        foreach (var option in ThemeOptions)
+        {
+            option.IsSelected = option.Kind == currentThemeKind;
+        }
+
+        CurrentThemeDisplayName = _themeService.CurrentTheme.DisplayName;
+    }
+
+    private void ApplyThemePreferenceHint(ThemePreference? themePreference)
+    {
+        if (themePreference is null)
+        {
+            ThemePreferenceStatusText = "\u672c\u5730\u5c1a\u672a\u4fdd\u5b58\u4e3b\u9898\u504f\u597d\uff0c\u5f53\u524d\u5df2\u4f7f\u7528\u7535\u4fe1\u84dd\u767d\u7070\u9ed8\u8ba4\u4e3b\u9898\u3002";
+            ThemePreferenceAccentResourceKey = "TonePrimaryBrush";
+            return;
+        }
+
+        if (ThemePreferenceMapper.TryParseImplemented(_themeService, themePreference.ThemeKey, out var storedThemeKind) &&
+            storedThemeKind == _themeService.CurrentTheme.Kind)
+        {
+            ThemePreferenceStatusText = $"\u5f53\u524d\u5df2\u6062\u590d\u4e0a\u6b21\u9009\u62e9\u7684\u4e3b\u9898\uff0c\u4fdd\u5b58\u65f6\u95f4 {FormatDateTime(themePreference.UpdatedAt)}\u3002";
+            ThemePreferenceAccentResourceKey = "ToneSuccessBrush";
+            return;
+        }
+
+        ThemePreferenceStatusText = "\u672c\u5730\u4e3b\u9898\u504f\u597d\u65e0\u6548\u6216\u5df2\u4e0d\u53ef\u7528\uff0c\u542f\u52a8\u65f6\u5df2\u56de\u9000\u5230\u7535\u4fe1\u84dd\u767d\u7070\u9ed8\u8ba4\u4e3b\u9898\u3002";
+        ThemePreferenceAccentResourceKey = "ToneWarningBrush";
     }
 
     private async Task TestConnectionAsync()

@@ -17,7 +17,7 @@ public sealed class PlaceholderOpenPlatformResponseDecryptor : IOpenPlatformResp
         }
 
         throw new OpenPlatformException(
-            $"Version={version} 无效。{OpenPlatformVersionPolicy.BuildCurrentVersionRequirementMessage()}",
+            $"Version={version} \u65e0\u6548\u3002{OpenPlatformVersionPolicy.BuildCurrentVersionRequirementMessage()}",
             "invalid_version");
     }
 }

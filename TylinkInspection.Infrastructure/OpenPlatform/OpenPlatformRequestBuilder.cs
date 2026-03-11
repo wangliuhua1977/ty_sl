@@ -1,6 +1,5 @@
 using TylinkInspection.Core.Configuration;
 using TylinkInspection.Core.Models;
-using TylinkInspection.Core.Utilities;
 using TylinkInspection.Infrastructure.Configuration;
 
 namespace TylinkInspection.Infrastructure.OpenPlatform;
@@ -30,7 +29,7 @@ public sealed class OpenPlatformRequestBuilder
         }
 
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-        var encryptedParams = _paramEncryptor.Encrypt(privateParameters, options.AppSecret, OpenPlatformVersionPolicy.CurrentVersion);
+        var encryptedParams = _paramEncryptor.Encrypt(privateParameters, options.AppSecret, options.Version);
 
         var publicParameters = new Dictionary<string, string>
         {
@@ -38,8 +37,7 @@ public sealed class OpenPlatformRequestBuilder
             ["clientType"] = options.ClientType,
             ["params"] = encryptedParams,
             ["timestamp"] = timestamp,
-            ["version"] = OpenPlatformVersionPolicy.CurrentVersion,
-            ["apiVersion"] = OpenPlatformVersionPolicy.ApiVersion
+            ["version"] = options.Version
         };
 
         publicParameters["signature"] = _signatureGenerator.Generate(publicParameters, options.AppSecret);

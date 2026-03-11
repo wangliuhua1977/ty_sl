@@ -33,11 +33,6 @@ public abstract class OpenPlatformAlarmServiceBase
         _openPlatformClient = openPlatformClient;
     }
 
-    protected TylinkOpenPlatformOptions GetOptions()
-    {
-        return _optionsProvider.GetOptions();
-    }
-
     protected OpenPlatformResponseEnvelope<JsonElement> Execute(string endpointPath, IReadOnlyDictionary<string, string> privateParameters)
     {
         try
@@ -55,7 +50,7 @@ public abstract class OpenPlatformAlarmServiceBase
         }
         catch (Exception ex)
         {
-            throw new PlatformServiceException("开放平台调用失败。", PlatformErrorCategory.Unknown, null, ex);
+            throw new PlatformServiceException("\u5f00\u653e\u5e73\u53f0\u8c03\u7528\u5931\u8d25\u3002", PlatformErrorCategory.Unknown, null, ex);
         }
     }
 
@@ -274,8 +269,8 @@ public abstract class OpenPlatformAlarmServiceBase
 
         if (errorCode.Contains("invalid", StringComparison.OrdinalIgnoreCase) ||
             errorCode.Contains("missing", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("参数", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("配置", StringComparison.OrdinalIgnoreCase))
+            message.Contains("\u53c2\u6570", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("\u914d\u7f6e", StringComparison.OrdinalIgnoreCase))
         {
             return PlatformErrorCategory.Parameter;
         }

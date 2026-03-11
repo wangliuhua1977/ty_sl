@@ -23,6 +23,77 @@
                 </DockPanel>
             </Border>
 
+            <Border Style="{StaticResource PanelCardStyle}">
+                <StackPanel>
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Left">
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="&#x754C;&#x9762;&#x4E3B;&#x9898;" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       TextWrapping="Wrap"
+                                       Text="&#x5F53;&#x524D;&#x652F;&#x6301;&#x7535;&#x4FE1;&#x84DD;&#x767D;&#x7070;&#x5DE5;&#x4F5C;&#x4E3B;&#x9898;&#x3001;&#x6807;&#x51C6;&#x6D45;&#x8272;&#x63A7;&#x5236;&#x53F0;&#x4E0E;&#x79D1;&#x6280;&#x6001;&#x52BF;&#x7248;&#x3002;&#x70B9;&#x51FB;&#x540E;&#x7ACB;&#x5373;&#x751F;&#x6548;&#xFF0C;&#x5E76;&#x4FDD;&#x5B58;&#x4E3A;&#x672C;&#x5730;&#x9ED8;&#x8BA4;&#x504F;&#x597D;&#x3002;" />
+                        </StackPanel>
+                        <Border DockPanel.Dock="Right"
+                                Style="{StaticResource StatusBadgeBorderStyle}"
+                                BorderBrush="{Binding ThemePreferenceAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
+                            <TextBlock Foreground="{Binding ThemePreferenceAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                       Text="{Binding CurrentThemeDisplayName}" />
+                        </Border>
+                    </DockPanel>
+
+                    <TextBlock Margin="0,12,0,0"
+                               Style="{StaticResource SectionHintStyle}"
+                               TextWrapping="Wrap"
+                               Text="{Binding ThemePreferenceStatusText}" />
+
+                    <ItemsControl Margin="0,18,0,0" ItemsSource="{Binding ThemeOptions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Width="290"
+                                        Margin="0,0,16,16"
+                                        IsEnabled="{Binding IsImplemented}"
+                                        Command="{Binding DataContext.SelectThemeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SelectionButtonStyle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Tag" Value="Selected" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock FontSize="15" FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                                            <Border DockPanel.Dock="Right"
+                                                    Style="{StaticResource StatusBadgeBorderStyle}"
+                                                    BorderBrush="{Binding StatusAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
+                                                <TextBlock Foreground="{Binding StatusAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                                           Text="{Binding StatusText}" />
+                                            </Border>
+                                        </DockPanel>
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Style="{StaticResource SectionHintStyle}"
+                                                   TextWrapping="Wrap"
+                                                   Text="{Binding Description}" />
+                                        <TextBlock Margin="0,10,0,0"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{Binding StatusAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                                   Text="{Binding ActionHint}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1.1*" />

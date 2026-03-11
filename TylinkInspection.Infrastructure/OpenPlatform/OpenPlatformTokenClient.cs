@@ -32,14 +32,8 @@ public sealed class OpenPlatformTokenClient : IOpenPlatformTokenClient
     {
         var privateParameters = new Dictionary<string, string>
         {
-            ["grantType"] = grantType,
-            ["enterpriseUser"] = options.EnterpriseUser
+            ["grantType"] = grantType
         };
-
-        if (!string.IsNullOrWhiteSpace(options.ParentUser))
-        {
-            privateParameters["parentUser"] = options.ParentUser!;
-        }
 
         if (string.Equals(grantType, OpenPlatformTokenGrantTypes.RefreshToken, StringComparison.Ordinal))
         {

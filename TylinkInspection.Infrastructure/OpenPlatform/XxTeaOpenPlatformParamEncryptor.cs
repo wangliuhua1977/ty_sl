@@ -1,5 +1,3 @@
-using System.Text;
-
 using TylinkInspection.Core.Utilities;
 
 namespace TylinkInspection.Infrastructure.OpenPlatform;
@@ -16,7 +14,9 @@ public sealed class XxTeaOpenPlatformParamEncryptor : IOpenPlatformParamEncrypto
         if (!OpenPlatformVersionPolicy.IsCurrentVersion(version) &&
             !OpenPlatformVersionPolicy.IsLegacyCompatibleVersion(version))
         {
-            throw new OpenPlatformException($"Version={version} 无效。{OpenPlatformVersionPolicy.BuildCurrentVersionRequirementMessage()}", "unsupported_version");
+            throw new OpenPlatformException(
+                $"Version={version} \u65e0\u6548\u3002{OpenPlatformVersionPolicy.BuildCurrentVersionRequirementMessage()}",
+                "unsupported_version");
         }
 
         var raw = string.Join("&", privateParameters.Select(pair => $"{pair.Key}={pair.Value}"));

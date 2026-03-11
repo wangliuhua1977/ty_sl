@@ -56,47 +56,44 @@
             <Border Style="{StaticResource PanelCardStyle}">
                 <StackPanel>
                     <WrapPanel>
-                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="时间范围" />
+                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="&#x65F6;&#x95F4;&#x8303;&#x56F4;" />
                         <ComboBox Width="140"
                                   Style="{StaticResource FilterComboBoxStyle}"
                                   ItemsSource="{Binding TimeRangeOptions}"
                                   SelectedItem="{Binding SelectedTimeRange}" />
 
-                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="本地状态" />
+                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="&#x672C;&#x5730;&#x72B6;&#x6001;" />
                         <ComboBox Width="140"
                                   Style="{StaticResource FilterComboBoxStyle}"
                                   ItemsSource="{Binding WorkflowOptions}"
                                   SelectedItem="{Binding SelectedWorkflow}" />
 
-                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="告警来源" />
+                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="&#x544A;&#x8B66;&#x6765;&#x6E90;" />
                         <ComboBox Width="170"
                                   Style="{StaticResource FilterComboBoxStyle}"
                                   ItemsSource="{Binding AlertSourceOptions}"
                                   SelectedItem="{Binding SelectedAlertSource}" />
 
-                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="告警类型" />
-                        <ComboBox Width="180"
-                                  Style="{StaticResource FilterComboBoxStyle}"
-                                  ItemsSource="{Binding AlertTypeOptions}"
-                                  SelectedItem="{Binding SelectedAlertType}" />
-
-                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="设备编码" />
+                        <TextBlock Style="{StaticResource FilterLabelStyle}" Text="&#x8BBE;&#x5907;&#x7F16;&#x7801;" />
                         <TextBox Width="180"
                                  Style="{StaticResource FilterTextBoxStyle}"
                                  Text="{Binding DeviceCode, UpdateSourceTrigger=PropertyChanged}" />
 
                         <Button Style="{StaticResource ActionButtonStyle}"
                                 Command="{Binding SearchCommand}"
-                                Content="执行筛选" />
+                                Content="&#x6267;&#x884C;&#x7B5B;&#x9009;" />
                         <Button Style="{StaticResource ActionButtonStyle}"
                                 Command="{Binding RefreshCommand}"
-                                Content="刷新列表" />
+                                Content="&#x5237;&#x65B0;&#x5217;&#x8868;" />
                         <Button Style="{StaticResource ActionButtonStyle}"
                                 Command="{Binding ClearFilterCommand}"
-                                Content="清空条件" />
+                                Content="&#x6E05;&#x7A7A;&#x6761;&#x4EF6;" />
                     </WrapPanel>
 
                     <TextBlock Margin="0,14,0,0"
+                               Style="{StaticResource SectionHintStyle}"
+                               Text="&#x5F53;&#x524D;&#x4EC5;&#x63A5;&#x5165; AI &#x753B;&#x9762;&#x5F02;&#x5E38;&#x5DE1;&#x68C0;&#x544A;&#x8B66;&#xFF0C;&#x540E;&#x7EED;&#x5982;&#x9700;&#x6269;&#x5C55;&#x5176;&#x4ED6; AI &#x7C7B;&#x578B;&#xFF0C;&#x518D;&#x6309;&#x6A21;&#x5757;&#x9010;&#x6B65;&#x63A5;&#x5165;&#x3002;" />
+                    <TextBlock Margin="0,8,0,0"
                                Style="{StaticResource SectionHintStyle}"
                                Text="{Binding ListStatusText}" />
                     <TextBlock Margin="0,6,0,0"
@@ -116,10 +113,10 @@
                 <Border Grid.Column="0" Style="{StaticResource PanelCardStyle}" Margin="0,0,18,0">
                     <DockPanel>
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="AI告警列表" />
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="&#x753B;&#x9762;&#x5F02;&#x5E38;&#x5DE1;&#x68C0;&#x544A;&#x8B66;&#x5217;&#x8868;" />
                             <TextBlock Margin="0,8,0,18"
                                        Style="{StaticResource SectionHintStyle}"
-                                       Text="真实数据驱动，支持筛选、刷新和滚动分页去重续翻。" />
+                                       Text="&#x5F53;&#x524D;&#x5217;&#x8868;&#x4EC5;&#x5C55;&#x793A;&#x4E0E;&#x6162;&#x76F4;&#x64AD;&#x8FD0;&#x7EF4;&#x5DE1;&#x68C0;&#x76F8;&#x5173;&#x7684;&#x753B;&#x9762;&#x5F02;&#x5E38;&#x6D88;&#x606F;&#xFF0C;&#x652F;&#x6301;&#x5237;&#x65B0;&#x548C;&#x52A0;&#x8F7D;&#x66F4;&#x591A;&#x3002;" />
                         </StackPanel>
 
                         <Button DockPanel.Dock="Bottom"
@@ -173,7 +170,7 @@
                                                        Text="{Binding Summary}" />
                                             <TextBlock Margin="0,8,0,0"
                                                        Style="{StaticResource SectionHintStyle}"
-                                                       Text="{Binding CreateTime, StringFormat='告警时间 {0:MM-dd HH:mm:ss}'}" />
+                                                       Text="{Binding CreateTime, StringFormat='&#x544A;&#x8B66;&#x65F6;&#x95F4; {0:MM-dd HH:mm:ss}'}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -183,55 +180,64 @@
                 </Border>
 
                 <Border Grid.Column="1" Style="{StaticResource PanelCardStyle}" Margin="0,0,18,0">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="关联普通设备告警" />
-                        <TextBlock Margin="0,8,0,12"
-                                   Style="{StaticResource SectionHintStyle}"
-                                   Text="{Binding RelatedAlarmStatusText}" />
-                        <TextBlock Margin="0,0,0,18"
-                                   Foreground="{DynamicResource ToneDangerBrush}"
-                                   TextWrapping="Wrap"
-                                   Text="{Binding RelatedAlarmErrorText}" />
+                    <DockPanel>
+                        <Button DockPanel.Dock="Bottom"
+                                Margin="0,18,0,0"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding LoadMoreRelatedAlarmsCommand}"
+                                Content="{Binding LoadMoreRelatedAlarmsButtonText}"
+                                IsEnabled="{Binding HasMoreRelatedAlarms}" />
 
-                        <ItemsControl ItemsSource="{Binding RelatedDeviceAlarms}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Style="{StaticResource ListItemCardStyle}"
-                                            BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock FontWeight="SemiBold" Text="{Binding AlarmTypeName}" />
-                                                <TextBlock DockPanel.Dock="Right"
-                                                           Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                           Text="{Binding SeverityOrStatusText}" />
-                                            </DockPanel>
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Style="{StaticResource FieldValueStyle}"
-                                                       Text="{Binding DeviceName}" />
-                                            <TextBlock Margin="0,4,0,0"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       Text="{Binding DeviceCode}" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       Text="{Binding Content}" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Style="{StaticResource SectionHintStyle}"
-                                                       Text="{Binding CreateTime, StringFormat='告警时间 {0:MM-dd HH:mm:ss}'}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="&#x5173;&#x8054;&#x666E;&#x901A;&#x8BBE;&#x5907;&#x544A;&#x8B66;" />
+                            <TextBlock Margin="0,8,0,12"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="{Binding RelatedAlarmStatusText}" />
+                            <TextBlock Margin="0,0,0,18"
+                                       Foreground="{DynamicResource ToneDangerBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding RelatedAlarmErrorText}" />
+
+                            <ItemsControl ItemsSource="{Binding RelatedDeviceAlarms}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource ListItemCardStyle}"
+                                                BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}">
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding AlarmTypeName}" />
+                                                    <TextBlock DockPanel.Dock="Right"
+                                                               Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                                               Text="{Binding SeverityOrStatusText}" />
+                                                </DockPanel>
+                                                <TextBlock Margin="0,8,0,0"
+                                                           Style="{StaticResource FieldValueStyle}"
+                                                           Text="{Binding DeviceName}" />
+                                                <TextBlock Margin="0,4,0,0"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding DeviceCode}" />
+                                                <TextBlock Margin="0,8,0,0"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding Content}" />
+                                                <TextBlock Margin="0,8,0,0"
+                                                           Style="{StaticResource SectionHintStyle}"
+                                                           Text="{Binding CreateTime, StringFormat='&#x544A;&#x8B66;&#x65F6;&#x95F4; {0:MM-dd HH:mm:ss}'}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DockPanel>
                 </Border>
 
                 <Border Grid.Column="2" Style="{StaticResource PanelCardStyle}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="告警详情" />
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="&#x544A;&#x8B66;&#x8BE6;&#x60C5;" />
                         <TextBlock Margin="0,8,0,18"
                                    Style="{StaticResource SectionHintStyle}"
-                                   Text="保留基础详情字段和本地复核备注，后续可继续接入 AI 告警详情、截图和恢复销警。" />
+                                   Text="&#x5F53;&#x524D;&#x8BE6;&#x60C5;&#x9762;&#x677F;&#x56F4;&#x7ED5; AI &#x753B;&#x9762;&#x5F02;&#x5E38;&#x5DE1;&#x68C0;&#x544A;&#x8B66;&#x5C55;&#x5F00;&#xFF0C;&#x4FDD;&#x7559;&#x540E;&#x7EED;&#x6269;&#x5C55;&#x5176;&#x4ED6; AI &#x7C7B;&#x578B;&#x3001;&#x8BE6;&#x60C5;&#x3001;&#x56FE;&#x7247;&#x548C;&#x6062;&#x590D;&#x9500;&#x8B66;&#x7684;&#x63A5;&#x53E3;&#x6269;&#x5C55;&#x70B9;&#x3002;" />
 
                         <Border Style="{StaticResource StatusBadgeBorderStyle}"
                                 BorderBrush="{Binding SelectedAlertAccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
@@ -257,29 +263,29 @@
                             <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="MsgId" />
                             <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertDetail.MsgId, TargetNullValue=--}" />
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="设备编码" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="&#x8BBE;&#x5907;&#x7F16;&#x7801;" />
                             <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertDetail.DeviceCode, TargetNullValue=--}" />
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="设备名称" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="&#x8BBE;&#x5907;&#x540D;&#x79F0;" />
                             <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertDetail.DeviceName, TargetNullValue=--}" />
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="告警类型" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="&#x544A;&#x8B66;&#x7C7B;&#x578B;" />
                             <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertDetail.AlertTypeName, TargetNullValue=--}" />
 
-                            <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="告警来源" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="&#x544A;&#x8B66;&#x6765;&#x6E90;" />
                             <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertDetail.AlertSourceName, TargetNullValue=--}" />
 
-                            <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="平台状态" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="&#x5E73;&#x53F0;&#x72B6;&#x6001;" />
                             <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertPlatformStatusText}" />
                         </Grid>
 
-                        <TextBlock Margin="0,20,0,6" Style="{StaticResource FieldLabelStyle}" Text="摘要" />
+                        <TextBlock Margin="0,20,0,6" Style="{StaticResource FieldLabelStyle}" Text="&#x6458;&#x8981;" />
                         <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertSummaryText}" />
 
-                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="时间" />
+                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="&#x65F6;&#x95F4;" />
                         <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedAlertTimeText}" />
 
-                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="本地复核备注" />
+                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="&#x672C;&#x5730;&#x590D;&#x6838;&#x5907;&#x6CE8;" />
                         <TextBox Height="96"
                                  Margin="0,0,0,18"
                                  AcceptsReturn="True"
@@ -291,24 +297,24 @@
                         <WrapPanel>
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Command="{Binding UpdateWorkflowCommand}"
-                                    CommandParameter="待确认"
-                                    Content="转待确认" />
+                                    CommandParameter="&#x5F85;&#x786E;&#x8BA4;"
+                                    Content="&#x8F6C;&#x5F85;&#x786E;&#x8BA4;" />
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Command="{Binding UpdateWorkflowCommand}"
-                                    CommandParameter="已确认"
-                                    Content="确认告警" />
+                                    CommandParameter="&#x5DF2;&#x786E;&#x8BA4;"
+                                    Content="&#x786E;&#x8BA4;&#x544A;&#x8B66;" />
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Command="{Binding UpdateWorkflowCommand}"
-                                    CommandParameter="已忽略"
-                                    Content="忽略告警" />
+                                    CommandParameter="&#x5DF2;&#x5FFD;&#x7565;"
+                                    Content="&#x5FFD;&#x7565;&#x544A;&#x8B66;" />
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Command="{Binding UpdateWorkflowCommand}"
-                                    CommandParameter="已派单"
-                                    Content="标记派单" />
+                                    CommandParameter="&#x5DF2;&#x6D3E;&#x5355;"
+                                    Content="&#x6807;&#x8BB0;&#x6D3E;&#x5355;" />
                             <Button Style="{StaticResource ActionButtonStyle}"
                                     Command="{Binding UpdateWorkflowCommand}"
-                                    CommandParameter="已恢复"
-                                    Content="标记恢复" />
+                                    CommandParameter="&#x5DF2;&#x6062;&#x590D;"
+                                    Content="&#x6807;&#x8BB0;&#x6062;&#x590D;" />
                         </WrapPanel>
                     </StackPanel>
                 </Border>

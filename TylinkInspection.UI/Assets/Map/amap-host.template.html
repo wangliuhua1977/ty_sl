@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tylink Inspection Map Host</title>
+    <style>
+        html,
+        body,
+        #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #08121b;
+            overflow: hidden;
+        }
+
+        .marker {
+            position: relative;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.86);
+            box-shadow: 0 0 0 1px rgba(8, 18, 27, 0.85), 0 0 14px rgba(17, 34, 52, 0.55);
+            box-sizing: border-box;
+            transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+            font-size: 8px;
+            font-weight: 700;
+            color: #f4fbff;
+        }
+
+        .marker.online {
+            background: #1ac987;
+        }
+
+        .marker.offline {
+            background: #ff8d44;
+        }
+
+        .marker.unchecked {
+            opacity: 0.78;
+        }
+
+        .marker.recheck {
+            box-shadow: 0 0 0 1px rgba(8, 18, 27, 0.85), 0 0 0 3px rgba(255, 91, 115, 0.24), 0 0 14px rgba(255, 91, 115, 0.42);
+        }
+
+        .marker.focus::after {
+            content: "";
+            position: absolute;
+            inset: -5px;
+            border-radius: 999px;
+            border: 2px solid rgba(56, 164, 255, 0.85);
+            box-shadow: 0 0 10px rgba(56, 164, 255, 0.45);
+        }
+
+        .marker.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 3px rgba(56, 164, 255, 0.28), 0 0 18px rgba(56, 164, 255, 0.5);
+        }
+
+        .marker-grade {
+            line-height: 1;
+            transform: translateY(-0.2px);
+            pointer-events: none;
+        }
+
+        .amap-logo,
+        .amap-copyright {
+            opacity: 0.65;
+        }
+    </style>
+    <script>
+        window.__HOST_CONFIG__ = {
+            key: __AMAP_KEY__,
+            securityJsCode: __AMAP_SECURITY_JS_CODE__,
+            version: __AMAP_VERSION__,
+            coordinateSystem: __COORDINATE_SYSTEM__
+        };
+        window._AMapSecurityConfig = {
+            securityJsCode: window.__HOST_CONFIG__.securityJsCode
+        };
+    </script>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        (function () {
+            const host = window.chrome && window.chrome.webview;
+            const state = {
+                map: null,
+                markers: new Map(),
+                selectedDevice: null,
+                pickMode: false
+            };
+
+            const postMessage = (message) => {
+                if (host) {
+                    host.postMessage(message);
+                }
+            };
+
+            const loadAmapScript = () =>
+                new Promise((resolve, reject) => {
+                    const script = document.createElement("script");
+                    script.src = `https://webapi.amap.com/maps?v=${encodeURIComponent(window.__HOST_CONFIG__.version)}&key=${encodeURIComponent(window.__HOST_CONFIG__.key)}`;
+                    script.async = true;
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error("高德地图脚本加载失败"));
+                    document.head.appendChild(script);
+                });
+
+            const markerClassName = (point) => {
+                const parts = [
+                    "marker",
+                    point.isOnline ? "online" : "offline"
+                ];
+                if (!point.playbackHealthGrade) {
+                    parts.push("unchecked");
+                }
+                if (point.isFocused) {
+                    parts.push("focus");
+                }
+
+                if (point.needRecheck) {
+                    parts.push("recheck");
+                }
+
+                if (state.selectedDevice && state.selectedDevice === point.deviceCode) {
+                    parts.push("selected");
+                }
+
+                return parts.join(" ");
+            };
+
+            const markerTitle = (point) => {
+                const status = [];
+                if (point.isFocused) {
+                    status.push("重点关注");
+                }
+
+                status.push(point.isOnline ? "在线" : "离线");
+                status.push(point.playbackHealthGrade ? `等级 ${point.playbackHealthGrade}` : "待检");
+
+                if (point.needRecheck) {
+                    status.push("需复检");
+                }
+
+                return `${point.deviceName} (${status.join(" / ")})`;
+            };
+
+            const clearMarkers = () => {
+                state.markers.forEach((marker) => marker.setMap(null));
+                state.markers.clear();
+            };
+
+            const updateMarkerSelection = () => {
+                state.markers.forEach((marker, deviceCode) => {
+                    const content = marker.getContent();
+                    if (!content || !content.classList) {
+                        return;
+                    }
+
+                    content.classList.toggle("selected", !!state.selectedDevice && state.selectedDevice === deviceCode);
+                });
+            };
+
+            const createMarker = (point) => {
+                const element = document.createElement("div");
+                element.className = markerClassName(point);
+                element.title = markerTitle(point);
+                const grade = document.createElement("span");
+                grade.className = "marker-grade";
+                grade.textContent = point.playbackHealthGrade || "?";
+                element.appendChild(grade);
+
+                const marker = new AMap.Marker({
+                    position: [point.longitude, point.latitude],
+                    anchor: "center",
+                    offset: new AMap.Pixel(-8, -8),
+                    content: element,
+                    title: markerTitle(point)
+                });
+
+                marker.on("click", () => {
+                    postMessage({ type: "markerClick", deviceCode: point.deviceCode });
+                });
+
+                return marker;
+            };
+
+            const setPoints = (points) => {
+                if (!state.map) {
+                    return;
+                }
+
+                clearMarkers();
+                const visibleMarkers = [];
+
+                (points || [])
+                    .filter((point) => typeof point.longitude === "number" && typeof point.latitude === "number")
+                    .forEach((point) => {
+                        const marker = createMarker(point);
+                        marker.setMap(state.map);
+                        state.markers.set(point.deviceCode, marker);
+                        visibleMarkers.push(marker);
+                    });
+
+                if (visibleMarkers.length > 0) {
+                    state.map.setFitView(visibleMarkers, false, [56, 56, 56, 56], 12);
+                }
+            };
+
+            const setSelectedDevice = (deviceCode) => {
+                state.selectedDevice = deviceCode || null;
+                updateMarkerSelection();
+
+                if (!state.selectedDevice) {
+                    return;
+                }
+
+                const marker = state.markers.get(state.selectedDevice);
+                if (marker) {
+                    state.map.panTo(marker.getPosition());
+                }
+            };
+
+            const setPickMode = (enabled) => {
+                state.pickMode = !!enabled;
+                if (state.map) {
+                    state.map.setDefaultCursor(state.pickMode ? "crosshair" : "default");
+                }
+            };
+
+            const initializeMap = async () => {
+                await loadAmapScript();
+                state.map = new AMap.Map("map", {
+                    resizeEnable: true,
+                    zoom: 5,
+                    center: [104.195397, 35.86166],
+                    mapStyle: "amap://styles/darkblue",
+                    viewMode: "2D"
+                });
+
+                state.map.on("click", (event) => {
+                    if (!state.pickMode) {
+                        return;
+                    }
+
+                    postMessage({
+                        type: "mapPick",
+                        longitude: event.lnglat.getLng(),
+                        latitude: event.lnglat.getLat()
+                    });
+                });
+
+                postMessage({ type: "mapReady" });
+            };
+
+            window.tylinkMap = {
+                setPoints,
+                setSelectedDevice,
+                setPickMode
+            };
+
+            initializeMap().catch((error) => {
+                postMessage({
+                    type: "error",
+                    message: error && error.message ? error.message : "地图初始化失败"
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

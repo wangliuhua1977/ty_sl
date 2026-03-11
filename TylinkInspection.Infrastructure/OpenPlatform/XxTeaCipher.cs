@@ -7,7 +7,7 @@ internal static class XxTeaCipher
     public static string Encrypt(string plainText, string appSecret)
     {
         var key = BuildKey(appSecret);
-        var encryptedBytes = Encrypt(ToByteArray(Encoding.UTF8.GetBytes(plainText), includeLength: true), ToByteArray(key, includeLength: false));
+        var encryptedBytes = Encrypt(ToUIntArray(Encoding.UTF8.GetBytes(plainText), includeLength: true), ToUIntArray(key, includeLength: false));
         return Convert.ToHexString(ToBytes(encryptedBytes, includeLength: false));
     }
 
@@ -15,7 +15,7 @@ internal static class XxTeaCipher
     {
         var cipherBytes = Convert.FromHexString(cipherHex);
         var key = BuildKey(appSecret);
-        var decryptedBytes = Decrypt(ToByteArray(cipherBytes, includeLength: false), ToByteArray(key, includeLength: false));
+        var decryptedBytes = Decrypt(ToUIntArray(cipherBytes, includeLength: false), ToUIntArray(key, includeLength: false));
         var plainBytes = ToBytes(decryptedBytes, includeLength: true);
         return Encoding.UTF8.GetString(plainBytes);
     }
@@ -52,11 +52,11 @@ internal static class XxTeaCipher
             for (var p = 0; p < n; p++)
             {
                 y = data[p + 1];
-                z = data[p] += MX(sum, y, z, p, e, key);
+                z = data[p] += Mix(sum, y, z, p, e, key);
             }
 
             y = data[0];
-            z = data[n] += MX(sum, y, z, n, e, key);
+            z = data[n] += Mix(sum, y, z, n, e, key);
         }
 
         return data;
@@ -87,24 +87,24 @@ internal static class XxTeaCipher
             {
                 var z = data[p - 1];
                 var y = data[p];
-                data[p] -= MX(sum, y, z, p, e, key);
+                data[p] -= Mix(sum, y, z, p, e, key);
             }
 
             var lastZ = data[n];
             var firstY = data[0];
-            data[0] -= MX(sum, firstY, lastZ, 0, e, key);
+            data[0] -= Mix(sum, firstY, lastZ, 0, e, key);
             sum -= delta;
         }
 
         return data;
     }
 
-    private static uint MX(uint sum, uint y, uint z, int p, uint e, uint[] key)
+    private static uint Mix(uint sum, uint y, uint z, int p, uint e, uint[] key)
     {
         return ((z >> 5) ^ (y << 2)) + ((y >> 3) ^ (z << 4)) ^ ((sum ^ y) + (key[(p & 3) ^ e] ^ z));
     }
 
-    private static uint[] ToByteArray(byte[] data, bool includeLength)
+    private static uint[] ToUIntArray(byte[] data, bool includeLength)
     {
         var length = (data.Length & 3) == 0 ? data.Length >> 2 : (data.Length >> 2) + 1;
         var result = includeLength ? new uint[length + 1] : new uint[length];
@@ -129,7 +129,7 @@ internal static class XxTeaCipher
             var m = (int)data[^1];
             if (m < 0 || m > n)
             {
-                throw new InvalidOperationException("XXTea 解密结果长度无效。");
+                throw new InvalidOperationException("XXTea \u89e3\u5bc6\u7ed3\u679c\u957f\u5ea6\u65e0\u6548\u3002");
             }
 
             n = m;

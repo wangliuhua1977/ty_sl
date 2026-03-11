@@ -6,7 +6,7 @@ namespace TylinkInspection.Services;
 
 public sealed class OpenPlatformDeviceAlarmService : OpenPlatformAlarmServiceBase, IDeviceAlarmService
 {
-    private const string ListEndpoint = "device/getDeviceAlarmMessage";
+    private const string ListEndpoint = "/open/token/device/getDeviceAlarmMessage";
 
     private readonly IDeviceAlarmStore _deviceAlarmStore;
 
@@ -169,11 +169,11 @@ public sealed class OpenPlatformDeviceAlarmService : OpenPlatformAlarmServiceBas
             Id = NormalizeText(platformAlarmId, Guid.NewGuid().ToString("N")),
             PlatformAlarmId = platformAlarmId,
             DeviceCode = NormalizeText(ReadString(item, "deviceCode"), "--"),
-            DeviceName = NormalizeText(ReadString(item, "deviceName"), "未命名设备"),
+            DeviceName = NormalizeText(ReadString(item, "deviceName"), "\u672a\u547d\u540d\u8bbe\u5907"),
             AlarmType = alarmType,
             AlarmTypeName = ResolveAlarmTypeName(alarmType),
-            Content = NormalizeText(ReadString(item, "content"), "平台未返回告警描述"),
-            CreateTime = ReadDateTimeOffset(item, "createTime") ?? DateTimeOffset.Now,
+            Content = NormalizeText(ReadString(item, "content"), "\u5e73\u53f0\u672a\u8fd4\u56de\u544a\u8b66\u63cf\u8ff0"),
+            CreateTime = ReadDateTimeOffset(item, "createTime", "alertTime") ?? DateTimeOffset.Now,
             UpdateTime = ReadDateTimeOffset(item, "updateTime"),
             PlatformStatus = platformStatus,
             PlatformStatusText = ResolveDeviceAlarmPlatformStatusText(platformStatus),
@@ -189,11 +189,11 @@ public sealed class OpenPlatformDeviceAlarmService : OpenPlatformAlarmServiceBas
     {
         return alarmType switch
         {
-            1 => "设备离线",
-            2 => "移动侦测",
-            10 => "设备上线",
-            11 => "有人移动",
-            _ => $"设备告警类型 {alarmType}"
+            1 => "\u8bbe\u5907\u79bb\u7ebf",
+            2 => "\u79fb\u52a8\u4fa6\u6d4b",
+            10 => "\u8bbe\u5907\u4e0a\u7ebf",
+            11 => "\u6709\u4eba\u79fb\u52a8",
+            _ => $"\u8bbe\u5907\u544a\u8b66\u7c7b\u578b {alarmType}"
         };
     }
 
@@ -201,11 +201,11 @@ public sealed class OpenPlatformDeviceAlarmService : OpenPlatformAlarmServiceBas
     {
         return status switch
         {
-            0 => "未读",
-            1 => "已读",
-            3 => "免打扰",
+            0 => "\u672a\u8bfb",
+            1 => "\u5df2\u8bfb",
+            3 => "\u514d\u6253\u6270",
             null => "--",
-            _ => $"状态 {status}"
+            _ => $"\u72b6\u6001 {status}"
         };
     }
 

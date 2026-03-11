@@ -1,6 +1,634 @@
 <UserControl x:Class="TylinkInspection.UI.Views.Pages.PointGovernancePageView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:shared="clr-namespace:TylinkInspection.UI.Views.Pages.Shared">
-    <shared:ModuleDashboardPageView />
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+             mc:Ignorable="d">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,4">
+            <Border Style="{StaticResource PanelCardStyle}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Left">
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding PageTitle}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding PageSubtitle}" />
+                    </StackPanel>
+
+                    <Border DockPanel.Dock="Right"
+                            Style="{StaticResource MiniBadgeStyle}"
+                            Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                        <TextBlock Text="SCOPE LINKAGE" />
+                    </Border>
+                </DockPanel>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding SummaryCards}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <primitives:UniformGrid Columns="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,16,16"
+                                Padding="16"
+                                Background="{DynamicResource MetricTileBackgroundBrush}"
+                                BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource InnerCardCornerRadius}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource SectionHintStyle}" Text="{Binding Label}" />
+                                <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                                    <TextBlock FontSize="{StaticResource FontSizeMetric}" FontWeight="Bold" Text="{Binding Value}" />
+                                    <TextBlock Margin="6,10,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Unit}" />
+                                </StackPanel>
+                                <TextBlock Margin="0,8,0,0"
+                                           Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
+                                           Text="{Binding DeltaText}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Style="{StaticResource PanelCardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2.2*" />
+                        <ColumnDefinition Width="1.8*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource SectionTitleStyle}" Text="当前巡检范围方案" />
+                        <TextBlock Margin="0,10,0,0"
+                                   Style="{StaticResource FieldValueStyle}"
+                                   Text="{Binding CurrentScopeSchemeText}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding CurrentScopeSchemeDescription}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="{DynamicResource TonePrimaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding CurrentSchemeRuleSummary}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="18,0,0,0">
+                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="方案切换" />
+                        <ComboBox Margin="0,10,0,0"
+                                  ItemsSource="{Binding SchemeOptions}"
+                                  SelectedItem="{Binding SelectedScheme}"
+                                  DisplayMemberPath="DisplayName" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding SelectedScheme.SummaryText}" />
+                    </StackPanel>
+
+                    <WrapPanel Grid.Column="2" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding NewSchemeCommand}"
+                                Content="新建方案" />
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding EditSchemeCommand}"
+                                Content="编辑方案" />
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding DeleteSchemeCommand}"
+                                IsEnabled="{Binding CanDeleteCurrentScheme}"
+                                Content="删除方案" />
+                    </WrapPanel>
+                </Grid>
+            </Border>
+
+            <Border>
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource PanelCardStyle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsEditorOpen}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="420" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <DockPanel Grid.Row="0" Grid.ColumnSpan="2">
+                        <StackPanel DockPanel.Dock="Left">
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="{Binding EditorTitleText}" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       TextWrapping="Wrap"
+                                       Text="目录树负责范围纳入，当前设备列表负责单点纳入、排除和重点关注。保存后点位治理列表、地图数据源和统计卡同步更新。" />
+                        </StackPanel>
+                        <Border DockPanel.Dock="Right"
+                                Style="{StaticResource MiniBadgeStyle}"
+                                Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                            <TextBlock Text="LIGHT EDITOR" />
+                        </Border>
+                    </DockPanel>
+
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,18,18,0">
+                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="方案名称" />
+                        <TextBox Margin="0,8,0,0"
+                                 Text="{Binding EditorSchemeName, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Margin="0,16,0,0" Style="{StaticResource FieldLabelStyle}" Text="方案说明" />
+                        <TextBox Margin="0,8,0,0"
+                                 Height="96"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Text="{Binding EditorSchemeDescription, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <CheckBox Margin="0,18,0,0"
+                                  IsChecked="{Binding EditorIncludeCatalog}"
+                                  Content="先纳入全部缓存点位，再叠加目录和单点规则" />
+                        <CheckBox Margin="0,10,0,0"
+                                  IsChecked="{Binding EditorIsDefault}"
+                                  Content="保存为默认巡检范围方案" />
+
+                        <TextBlock Margin="0,18,0,0"
+                                   Style="{StaticResource SectionHintStyle}"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding EditorStatusText}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="{DynamicResource ToneDangerBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding EditorErrorText}" />
+                    </StackPanel>
+
+                    <Border Grid.Row="1" Grid.Column="1"
+                            Margin="0,18,0,0"
+                            Background="{DynamicResource MetricTileBackgroundBrush}"
+                            BorderBrush="{DynamicResource PanelCardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource InnerCardCornerRadius}">
+                        <DockPanel Margin="16">
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="目录树纳入规则" />
+                                <TextBlock Margin="0,8,0,12"
+                                           Style="{StaticResource SectionHintStyle}"
+                                           Text="勾选目录即可将目录及其子目录下点位纳入当前方案。" />
+                            </StackPanel>
+
+                            <TreeView ItemsSource="{Binding EditorDirectoryNodes}"
+                                      Background="Transparent"
+                                      BorderThickness="0">
+                                <TreeView.ItemTemplate>
+                                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                        <StackPanel Margin="0,3,0,3">
+                                            <CheckBox Content="{Binding Name}"
+                                                      IsChecked="{Binding IsChecked}" />
+                                            <TextBlock Margin="22,4,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding FullPath}" />
+                                        </StackPanel>
+                                    </HierarchicalDataTemplate>
+                                </TreeView.ItemTemplate>
+                            </TreeView>
+                        </DockPanel>
+                    </Border>
+
+                    <WrapPanel Grid.Row="2" Grid.ColumnSpan="2"
+                               Margin="0,18,0,0"
+                               HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding CancelSchemeEditCommand}"
+                                Content="取消编辑" />
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding SaveSchemeCommand}"
+                                Content="保存方案" />
+                    </WrapPanel>
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource PanelCardStyle}">
+                <StackPanel>
+                    <WrapPanel>
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding RefreshDirectoryCommand}"
+                                Content="刷新目录与缓存" />
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding ShowDirectoryDevicesCommand}"
+                                Content="查看当前方案点位" />
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding ShowAllDevicesCommand}"
+                                Content="查看缓存点位池" />
+                        <Button Style="{StaticResource ActionButtonStyle}"
+                                Command="{Binding RefreshListCommand}"
+                                Content="刷新当前列表" />
+                    </WrapPanel>
+
+                    <TextBlock Margin="0,12,0,0"
+                               Style="{StaticResource SectionHintStyle}"
+                               Text="{Binding CurrentModeText}" />
+                    <TextBlock Margin="0,6,0,0"
+                               Style="{StaticResource SectionHintStyle}"
+                               Text="{Binding PageSummaryText}" />
+                </StackPanel>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="320" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="420" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource PanelCardStyle}" Margin="0,0,18,0">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="目录树联动视图" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="默认只展示当前巡检范围覆盖的目录，可切换到缓存点位池继续治理。" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="{Binding TreeStatusText}" />
+                            <TextBlock Margin="0,6,0,12"
+                                       Foreground="{DynamicResource ToneDangerBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding TreeErrorText}" />
+                        </StackPanel>
+
+                        <TreeView ItemsSource="{Binding DirectoryNodes}"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  SelectedItemChanged="DirectoryTree_OnSelectedItemChanged">
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <StackPanel Margin="0,4,0,4">
+                                        <DockPanel>
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                            <Border DockPanel.Dock="Right"
+                                                    Style="{StaticResource StatusBadgeBorderStyle}">
+                                                <TextBlock Text="{Binding Level, StringFormat='L{0}'}" />
+                                            </Border>
+                                        </DockPanel>
+                                        <TextBlock Margin="0,4,0,0"
+                                                   Style="{StaticResource SectionHintStyle}"
+                                                   Text="{Binding FullPath}" />
+                                        <WrapPanel Margin="0,4,0,0">
+                                            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       Text="{Binding HasDevice, StringFormat='含点位: {0}'}" />
+                                            <TextBlock Margin="10,0,0,0"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       Text="{Binding HasChildren, StringFormat='含子目录: {0}'}" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource PanelCardStyle}" Margin="0,0,18,0">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="点位列表" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="{Binding SelectedDirectoryPathText}" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="{Binding ListStatusText}" />
+                            <TextBlock Margin="0,6,0,12"
+                                       Foreground="{DynamicResource ToneDangerBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding ListErrorText}" />
+                        </StackPanel>
+
+                        <StackPanel DockPanel.Dock="Bottom"
+                                    Margin="0,16,0,0"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right">
+                            <Button Margin="0,0,10,0"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Command="{Binding PreviousPageCommand}"
+                                    IsEnabled="{Binding HasPreviousPage}"
+                                    Content="上一页" />
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    Command="{Binding NextPageCommand}"
+                                    IsEnabled="{Binding HasNextPage}"
+                                    Content="下一页" />
+                        </StackPanel>
+
+                        <ListBox ItemsSource="{Binding DeviceItems}"
+                                 SelectedItem="{Binding SelectedDevice}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource ListItemCardStyle}">
+                                        <StackPanel>
+                                            <DockPanel>
+                                                <TextBlock FontWeight="SemiBold"
+                                                           TextWrapping="Wrap"
+                                                           Text="{Binding DeviceName}" />
+                                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                                    <Border Style="{StaticResource StatusBadgeBorderStyle}">
+                                                        <TextBlock Text="{Binding OnlineStatusText}" />
+                                                    </Border>
+                                                    <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                                            Margin="8,0,0,0">
+                                                        <TextBlock Text="{Binding ScopeBadgeText}" />
+                                                    </Border>
+                                                    <Border Style="{StaticResource StatusBadgeBorderStyle}"
+                                                            Margin="8,0,0,0">
+                                                        <TextBlock Text="{Binding PlaybackGradeBadgeText}" />
+                                                    </Border>
+                                                    <Border Margin="8,0,0,0"
+                                                            BorderBrush="{DynamicResource ToneWarningBrush}">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border" BasedOn="{StaticResource StatusBadgeBorderStyle}">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Setter Property="Margin" Value="8,0,0,0" />
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource ToneWarningBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding NeedRecheck}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding RecheckBadgeText}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </DockPanel>
+
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Style="{StaticResource FieldValueStyle}"
+                                                       Text="{Binding DeviceCode}" />
+
+                                            <WrapPanel Margin="0,8,0,0">
+                                                <TextBlock Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding DirectoryName, StringFormat='目录: {0}'}" />
+                                                <TextBlock Margin="10,0,0,0"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding DeviceSourceText, StringFormat='来源: {0}'}" />
+                                            </WrapPanel>
+
+                                            <WrapPanel Margin="0,4,0,0">
+                                                <TextBlock Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding Device.NodeId, StringFormat='节点: {0}', TargetNullValue='节点: --'}" />
+                                                <TextBlock Margin="10,0,0,0"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                           Text="{Binding NetTypeText, StringFormat='网络: {0}'}" />
+                                            </WrapPanel>
+
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding DirectoryPath}" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding CoordinateText, StringFormat='坐标: {0}'}" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding LastInspectionTimeText, StringFormat='最近巡检: {0}'}" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding PlaybackGradeSummary}" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Style="{StaticResource SectionHintStyle}"
+                                                       Text="{Binding LastFailureReasonSummary}"
+                                                       TextWrapping="Wrap" />
+
+                                            <StackPanel Margin="0,12,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding DataContext.IsEditorOpen, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+
+                                                <WrapPanel>
+                                                    <CheckBox Margin="0,0,14,0"
+                                                              IsChecked="{Binding IsDraftIncluded}"
+                                                              Content="单点纳入" />
+                                                    <CheckBox Margin="0,0,14,0"
+                                                              IsChecked="{Binding IsDraftExcluded}"
+                                                              Content="单点排除" />
+                                                    <CheckBox IsChecked="{Binding IsDraftFocused}"
+                                                              Content="重点关注" />
+                                                </WrapPanel>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource PanelCardStyle}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="点位基础信息 / 路径回溯" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="{Binding DetailStatusText}" />
+                            <TextBlock Margin="0,6,0,18"
+                                       Foreground="{DynamicResource ToneDangerBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding DetailErrorText}" />
+                        </StackPanel>
+
+                        <StackPanel DockPanel.Dock="Bottom"
+                                    Margin="0,18,0,0"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right">
+                            <Button Margin="0,0,10,0"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Command="{Binding RefreshDetailCommand}"
+                                    Content="刷新详情" />
+                            <Button Margin="0,0,10,0"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    Command="{Binding ExecuteInspectionCommand}"
+                                    IsEnabled="{Binding CanInspectSelectedDevice}"
+                                    Content="{Binding InspectButtonText}" />
+                            <Button Style="{StaticResource ActionButtonStyle}"
+                                    IsEnabled="False"
+                                    Content="批量巡检（预留）" />
+                        </StackPanel>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="设备编码" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.DeviceCode, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="设备名称" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.DeviceName, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="在线状态" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.OnlineStatusText, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="目录路径" />
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.DirectoryPath, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="设备来源" />
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.DeviceSourceText, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="节点 ID" />
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.NodeId, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="网络类型" />
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.NetTypeText, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="区域编码" />
+                                    <TextBlock Grid.Row="7" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedDeviceProfile.Device.RegionCode, TargetNullValue=--}" />
+
+                                    <TextBlock Grid.Row="8" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="经纬度" />
+                                    <TextBlock Grid.Row="8" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}">
+                                        <Run Text="{Binding SelectedDeviceProfile.Device.Longitude, TargetNullValue=--}" />
+                                        <Run Text=" / " />
+                                        <Run Text="{Binding SelectedDeviceProfile.Device.Latitude, TargetNullValue=--}" />
+                                    </TextBlock>
+
+                                    <TextBlock Grid.Row="9" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="体检入口" />
+                                    <TextBlock Grid.Row="9" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding InspectionEntryText}" />
+                                </Grid>
+
+                                <Border Margin="0,22,0,0"
+                                        Padding="16"
+                                        Background="{DynamicResource MetricTileBackgroundBrush}"
+                                        BorderBrush="{DynamicResource TonePrimaryBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{StaticResource InnerCardCornerRadius}">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="基础巡检" />
+                                            <Border DockPanel.Dock="Right"
+                                                    Style="{StaticResource MiniBadgeStyle}"
+                                                    Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                                <TextBlock Text="{Binding SelectedInspectionResult.PlaybackHealthGrade, TargetNullValue=待检}" />
+                                            </Border>
+                                        </DockPanel>
+
+                                        <TextBlock Margin="0,10,0,0"
+                                                   Style="{StaticResource SectionHintStyle}"
+                                                   Text="{Binding InspectionStatusText}"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Foreground="{DynamicResource ToneDangerBrush}"
+                                                   Text="{Binding InspectionAlertText}"
+                                                   TextWrapping="Wrap" />
+
+                                        <Grid Margin="0,16,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="最近巡检" />
+                                            <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.InspectionTimeText, TargetNullValue=待检}" />
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="播放等级" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.PlaybackHealthSummary, TargetNullValue=待检}" />
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="最优协议" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.PreferredProtocolText, TargetNullValue=--}" />
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="备用协议" />
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.FallbackProtocolText, TargetNullValue=--}" />
+
+                                            <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="地址有效期" />
+                                            <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.ExpireTimeText, TargetNullValue=--}" />
+
+                                            <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="视频编码" />
+                                            <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.VideoEncText, TargetNullValue=--}" />
+
+                                            <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,10,0,4" Style="{StaticResource FieldLabelStyle}" Text="最近失败" />
+                                            <TextBlock Grid.Row="6" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.FailureReasonText, TargetNullValue=无}" TextWrapping="Wrap" />
+                                        </Grid>
+
+                                        <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="巡检建议" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}"
+                                                   Text="{Binding SelectedInspectionResult.SuggestionText, TargetNullValue=暂无}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="设备树路径" />
+                                <TextBlock Style="{StaticResource FieldValueStyle}"
+                                           TextWrapping="Wrap"
+                                           Text="{Binding SelectedDeviceProfile.PathInfo.DeviceFullPath, TargetNullValue=--}" />
+
+                                <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="业务树路径" />
+                                <TextBlock Style="{StaticResource FieldValueStyle}"
+                                           TextWrapping="Wrap"
+                                           Text="{Binding SelectedDeviceProfile.PathInfo.BizFullPath, TargetNullValue=--}" />
+
+                                <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="省级行业树路径" />
+                                <ItemsControl ItemsSource="{Binding SelectedDeviceProfile.PathInfo.ProvincialIndustryFullPaths}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ListItemCardStyle}">
+                                                <TextBlock TextWrapping="Wrap" Text="{Binding}" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

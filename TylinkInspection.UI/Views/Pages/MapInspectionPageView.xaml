@@ -4,7 +4,9 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
-             mc:Ignorable="d">
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             mc:Ignorable="d"
+             Loaded="OnLoaded">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -22,7 +24,9 @@
                         <TextBlock Text="{Binding LastUpdatedText}" />
                     </Border>
                 </DockPanel>
+
                 <TextBlock Margin="0,14,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding MapCaption}" />
+
                 <ItemsControl Margin="0,18,0,0" ItemsSource="{Binding OverviewMetrics}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -63,11 +67,13 @@
                 <StackPanel>
                     <Border Style="{StaticResource PanelCardStyle}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="区域方案切换" />
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="巡检范围方案" />
                             <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding SchemeItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Margin="0,0,0,10" Command="{Binding DataContext.SelectSchemeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                        <Button Margin="0,0,0,10"
+                                                Command="{Binding DataContext.SelectSchemeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SelectionButtonStyle}">
                                                     <Setter Property="Margin" Value="0,0,0,10" />
@@ -80,7 +86,7 @@
                                             </Button.Style>
                                             <StackPanel>
                                                 <TextBlock FontSize="14" FontWeight="SemiBold" Text="{Binding Title}" />
-                                                <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Subtitle}" />
+                                                <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Subtitle}" TextWrapping="Wrap" />
                                             </StackPanel>
                                         </Button>
                                     </DataTemplate>
@@ -91,11 +97,13 @@
 
                     <Border Style="{StaticResource PanelCardStyle}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="巡检任务" />
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="巡检任务视角" />
                             <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding TaskTypeItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Margin="0,0,0,10" Command="{Binding DataContext.SelectTaskTypeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                        <Button Margin="0,0,0,10"
+                                                Command="{Binding DataContext.SelectTaskTypeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource SelectionButtonStyle}">
                                                     <Setter Property="Margin" Value="0,0,0,10" />
@@ -113,7 +121,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel>
                                                     <TextBlock FontSize="15" FontWeight="SemiBold" Text="{Binding Title}" />
-                                                    <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Subtitle}" />
+                                                    <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Subtitle}" TextWrapping="Wrap" />
                                                 </StackPanel>
                                                 <Border Grid.Column="1" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource TaskCountBadgeBackgroundBrush}" Margin="12,0,0,0">
                                                     <TextBlock FontWeight="SemiBold" Text="{Binding Badge}" />
@@ -128,7 +136,7 @@
 
                     <Border Style="{StaticResource PanelCardStyle}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="异常警情列表" />
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="异常摘要" />
                             <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding AlertItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -159,7 +167,6 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0" Margin="22,18,22,0">
@@ -168,69 +175,32 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="地图主舞台" />
-                            <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" Text="当前为占位地图底板，后续可替换为真实高德地图或业务底图。" />
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="高德地图承载" />
+                            <TextBlock Margin="0,6,0,0" Style="{StaticResource SectionHintStyle}" Text="仅承载当前巡检范围方案内点位，地图坐标统一按 GCJ-02 展示。" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Foreground="{DynamicResource ToneDangerBrush}"
+                                       Text="{Binding MapErrorText}"
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                         <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
-                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneSuccessBrush}"><TextBlock Text="正常点位" /></Border>
-                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneWarningBrush}"><TextBlock Text="异常点位" /></Border>
-                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneInfoBrush}"><TextBlock Text="待复核点位" /></Border>
-                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneFocusBrush}"><TextBlock Text="重点关注点位" /></Border>
+                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneSuccessBrush}"><TextBlock Text="在线" /></Border>
+                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneWarningBrush}"><TextBlock Text="离线" /></Border>
+                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource TonePrimaryBrush}"><TextBlock Text="A-E 等级" /></Border>
+                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneDangerBrush}"><TextBlock Text="需复检" /></Border>
+                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneFocusBrush}"><TextBlock Text="重点关注" /></Border>
+                            <Border Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapLegendBackgroundBrush}" BorderBrush="{DynamicResource ToneInfoBrush}"><TextBlock Text="待补录坐标" /></Border>
                         </WrapPanel>
                     </Grid>
 
-                    <Grid Grid.Row="1" Margin="22,20,22,12" ClipToBounds="True">
-                        <Border Background="{DynamicResource MapSurfaceBrush}" BorderBrush="{DynamicResource MapBorderBrush}" BorderThickness="1" CornerRadius="{StaticResource ShellCornerRadius}" />
-                        <Border Background="{DynamicResource MapGridBrush}" CornerRadius="{StaticResource ShellCornerRadius}" Opacity="0.65" />
-                        <Canvas Margin="32">
-                            <Path Stroke="{DynamicResource MapPathPrimaryBrush}" StrokeThickness="2" Data="M80,360 C170,270 270,260 360,180 S590,80 740,140" Opacity="0.8" />
-                            <Path Stroke="{DynamicResource MapPathSecondaryBrush}" StrokeThickness="1.8" Data="M60,100 C120,160 250,210 380,230 S610,285 760,365" Opacity="0.85" />
-                            <Path Fill="{DynamicResource MapRegionFillBrush}" Stroke="{DynamicResource MapRegionBorderBrush}" StrokeThickness="1.5" Data="M110,90 L255,60 L420,130 L565,115 L702,212 L632,360 L430,404 L216,338 L92,246 Z" Opacity="0.65" />
-                            <Path Fill="{DynamicResource MapInnerRegionFillBrush}" Stroke="{DynamicResource MapInnerRegionBorderBrush}" StrokeThickness="1.2" Data="M248,142 L354,112 L480,176 L536,282 L410,332 L292,286 L224,226 Z" Opacity="0.72" />
-                            <ItemsControl ItemsSource="{Binding MapMarkers}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemContainerStyle>
-                                    <Style TargetType="ContentPresenter">
-                                        <Setter Property="Canvas.Left" Value="{Binding X}" />
-                                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                                    </Style>
-                                </ItemsControl.ItemContainerStyle>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel>
-                                            <Grid Width="18" Height="18">
-                                                <Ellipse Fill="{Binding GlowBrushKey, Converter={StaticResource ResourceLookupConverter}}" />
-                                                <Ellipse Width="10" Height="10" Fill="{Binding AccentBrushKey, Converter={StaticResource ResourceLookupConverter}}" Stroke="White" StrokeThickness="1.2" />
-                                            </Grid>
-                                            <Border Margin="-10,8,0,0"
-                                                    Padding="10,6"
-                                                    Background="{DynamicResource MapOverlayLabelBackgroundBrush}"
-                                                    BorderBrush="{Binding AccentBrushKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="{StaticResource BadgeCornerRadius}">
-                                                <StackPanel>
-                                                    <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Name}" />
-                                                    <TextBlock Margin="0,2,0,0" FontSize="10" Foreground="{Binding AccentBrushKey, Converter={StaticResource ResourceLookupConverter}}" Text="{Binding StateLabel}" />
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Canvas>
-                    </Grid>
-
-                    <DockPanel Grid.Row="2" Margin="22,0,22,18">
-                        <StackPanel DockPanel.Dock="Left">
-                            <TextBlock Style="{StaticResource SectionHintStyle}" Text="说明" />
-                            <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="地图区域、点位、图层与统计条均由 ViewModel 假数据驱动，可直接替换为真实数据源。" />
-                        </StackPanel>
-                        <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource MapFooterBadgeBackgroundBrush}">
-                            <TextBlock Text="地图接入状态: Mock Placeholder" />
-                        </Border>
-                    </DockPanel>
+                    <Border Grid.Row="1"
+                            Margin="22,20,22,18"
+                            Background="{DynamicResource MapSurfaceBrush}"
+                            BorderBrush="{DynamicResource MapBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource ShellCornerRadius}">
+                        <wv2:WebView2 x:Name="MapWebView"
+                                      DefaultBackgroundColor="Transparent" />
+                    </Border>
                 </Grid>
             </Border>
 
@@ -258,100 +228,185 @@
 
                     <Border Style="{StaticResource PanelCardStyle}">
                         <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="当前点位" />
+                            <TextBlock Margin="0,14,0,0" FontSize="18" FontWeight="SemiBold" Text="{Binding SelectedPointName}" TextWrapping="Wrap" />
+                            <TextBlock Margin="0,6,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedPointDeviceCode}" />
+
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="状态" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedPointStatusText}" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="目录" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedPointDirectoryPath}" TextWrapping="Wrap" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="来源" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedCoordinateSourceText}" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="坐标" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedCoordinateText}" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="更新时间" />
+                                <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedCoordinateUpdatedText}" />
+                            </Grid>
+
+                            <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="备注" />
+                            <TextBlock Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedCoordinateRemarkText}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource PanelCardStyle}">
+                        <StackPanel>
                             <DockPanel>
-                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="AI巡检助手" />
-                                <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource AssistantChipBackgroundBrush}" BorderBrush="{DynamicResource TonePrimaryBrush}">
-                                    <TextBlock Text="AI ENGINE" />
+                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="基础巡检" />
+                                <Border DockPanel.Dock="Right"
+                                        Style="{StaticResource MiniBadgeStyle}"
+                                        Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                    <TextBlock Text="{Binding SelectedInspectionResult.PlaybackHealthGrade, TargetNullValue=待检}" />
                                 </Border>
                             </DockPanel>
-                            <TextBlock Margin="0,18,0,0" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding AssistantStatus.Headline}" />
-                            <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding AssistantStatus.Detail}" />
-                            <TextBlock Margin="0,12,0,0" Foreground="{DynamicResource ToneSuccessBrush}" Text="{Binding AssistantStatus.LastAction}" />
-                            <TextBlock Margin="0,6,0,0" Foreground="{DynamicResource TonePrimaryBrush}" Text="{Binding AssistantStatus.ConfidenceText}" />
-                        </StackPanel>
-                    </Border>
 
-                    <Border Style="{StaticResource PanelCardStyle}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="任务进展" />
-                            <ItemsControl Margin="0,18,0,0" ItemsSource="{Binding ProgressItems}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="0,0,0,12"
-                                                Padding="14"
-                                                Background="{DynamicResource TaskProgressBackgroundBrush}"
-                                                BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                BorderThickness="1"
-                                                CornerRadius="{StaticResource InnerCardCornerRadius}">
-                                            <DockPanel>
-                                                <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Label}" />
-                                                <TextBlock DockPanel.Dock="Right" FontSize="26" FontWeight="Bold" Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}" Text="{Binding Value}" />
-                                            </DockPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                            <TextBlock Margin="0,12,0,0"
+                                       Style="{StaticResource SectionHintStyle}"
+                                       Text="{Binding InspectionStatusText}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Margin="0,8,0,0"
+                                       Foreground="{DynamicResource ToneDangerBrush}"
+                                       Text="{Binding InspectionAlertText}"
+                                       TextWrapping="Wrap" />
 
-                    <Border Style="{StaticResource PanelCardStyle}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="待办事项" />
-                            <ItemsControl Margin="0,18,0,0" ItemsSource="{Binding TodoItems}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="0,0,0,12"
-                                                Padding="14"
-                                                Background="{DynamicResource TodoCardBackgroundBrush}"
-                                                BorderBrush="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}"
-                                                BorderThickness="1"
-                                                CornerRadius="{StaticResource InnerCardCornerRadius}">
-                                            <StackPanel>
-                                                <DockPanel>
-                                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
-                                                    <TextBlock DockPanel.Dock="Right" Foreground="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}" Text="{Binding DueText}" />
-                                                </DockPanel>
-                                                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Description}" />
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <WrapPanel Margin="0,16,0,0">
+                                <Button Style="{StaticResource ActionButtonStyle}"
+                                        Command="{Binding ExecuteInspectionCommand}"
+                                        IsEnabled="{Binding CanInspectSelectedPoint}"
+                                        Content="{Binding InspectButtonText}" />
+                                <Button Style="{StaticResource ActionButtonStyle}"
+                                        IsEnabled="False"
+                                        Content="批量巡检（预留）" />
+                            </WrapPanel>
+
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabelStyle}" Text="最近巡检" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.InspectionTimeText, TargetNullValue=待检}" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="播放等级" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.PlaybackHealthSummary, TargetNullValue=待检}" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="最优协议" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.PreferredProtocolText, TargetNullValue=--}" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="备用协议" />
+                                <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.FallbackProtocolText, TargetNullValue=--}" />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="有效期" />
+                                <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.ExpireTimeText, TargetNullValue=--}" />
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="视频编码" />
+                                <TextBlock Grid.Row="5" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.VideoEncText, TargetNullValue=--}" />
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,10,0,0" Style="{StaticResource FieldLabelStyle}" Text="最近失败" />
+                                <TextBlock Grid.Row="6" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource FieldValueStyle}" Text="{Binding SelectedInspectionResult.FailureReasonText, TargetNullValue=无}" TextWrapping="Wrap" />
+                            </Grid>
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource PanelCardStyle}">
                         <StackPanel>
                             <DockPanel>
-                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="雷达态势" />
-                                <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource SecondaryTextBrush}" Text="实时占位图" />
+                                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="人工坐标治理" />
+                                <Border DockPanel.Dock="Right" Style="{StaticResource MiniBadgeStyle}" Background="{DynamicResource FilterBadgeBackgroundBrush}">
+                                    <TextBlock Text="GCJ-02" />
+                                </Border>
                             </DockPanel>
-                            <Grid Margin="0,18,0,0" HorizontalAlignment="Center">
-                                <Canvas Width="220" Height="220">
-                                    <Ellipse Width="220" Height="220" Stroke="{DynamicResource RadarPrimaryStrokeBrush}" StrokeThickness="1.2" />
-                                    <Ellipse Width="160" Height="160" Canvas.Left="30" Canvas.Top="30" Stroke="{DynamicResource RadarMidStrokeBrush}" StrokeThickness="1.2" />
-                                    <Ellipse Width="100" Height="100" Canvas.Left="60" Canvas.Top="60" Stroke="{DynamicResource RadarInnerStrokeBrush}" StrokeThickness="1.2" />
-                                    <Line X1="110" Y1="0" X2="110" Y2="220" Stroke="{DynamicResource RadarSecondaryStrokeBrush}" StrokeThickness="1" />
-                                    <Line X1="0" Y1="110" X2="220" Y2="110" Stroke="{DynamicResource RadarSecondaryStrokeBrush}" StrokeThickness="1" />
-                                    <Path Stroke="{DynamicResource RadarSweepBrush}" StrokeThickness="2.2" Data="M110,110 L196,42" Opacity="0.9" />
-                                    <ItemsControl ItemsSource="{Binding RadarSignals}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate><Canvas /></ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemContainerStyle>
-                                            <Style TargetType="ContentPresenter">
-                                                <Setter Property="Canvas.Left" Value="{Binding X}" />
-                                                <Setter Property="Canvas.Top" Value="{Binding Y}" />
-                                            </Style>
-                                        </ItemsControl.ItemContainerStyle>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Ellipse Width="{Binding Size}" Height="{Binding Size}" Fill="{Binding AccentResourceKey, Converter={StaticResource ResourceLookupConverter}}" Opacity="{Binding Opacity}" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </Canvas>
-                            </Grid>
+
+                            <TextBlock Margin="0,14,0,0" Style="{StaticResource SectionHintStyle}" Text="{Binding EditorStatusText}" TextWrapping="Wrap" />
+                            <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource ToneDangerBrush}" Text="{Binding EditorErrorText}" TextWrapping="Wrap" />
+
+                            <TextBlock Margin="0,18,0,6" Style="{StaticResource FieldLabelStyle}" Text="经度" />
+                            <TextBox Text="{Binding EditorLongitude, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="纬度" />
+                            <TextBox Text="{Binding EditorLatitude, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Margin="0,14,0,6" Style="{StaticResource FieldLabelStyle}" Text="备注" />
+                            <TextBox Height="80"
+                                     AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     TextWrapping="Wrap"
+                                     Text="{Binding EditorRemark, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <WrapPanel Margin="0,18,0,0">
+                                <Button Style="{StaticResource ActionButtonStyle}"
+                                        Command="{Binding TogglePickModeCommand}"
+                                        IsEnabled="{Binding HasSelectedPoint}"
+                                        Content="地图取点" />
+                                <Button Style="{StaticResource ActionButtonStyle}"
+                                        Command="{Binding SaveManualCoordinateCommand}"
+                                        IsEnabled="{Binding HasSelectedPoint}"
+                                        Content="保存人工坐标" />
+                                <Button Style="{StaticResource ActionButtonStyle}"
+                                        Command="{Binding ClearManualCoordinateCommand}"
+                                        IsEnabled="{Binding HasSelectedPoint}"
+                                        Content="清除人工坐标" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource PanelCardStyle}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitleStyle}" Text="待补录坐标" />
+                            <TextBlock Margin="0,10,0,0" Style="{StaticResource SectionHintStyle}" Text="不落地图，但继续纳入当前方案统计和联动列表。" TextWrapping="Wrap" />
+                            <TextBlock Margin="0,8,0,12" Style="{StaticResource SectionHintStyle}" Text="{Binding MissingCoordinateItems.Count, StringFormat='当前 {0} 个点位待补录'}" />
+
+                            <ItemsControl ItemsSource="{Binding MissingCoordinateItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Margin="0,0,0,10"
+                                                Command="{Binding DataContext.SelectMissingCoordinateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SelectionButtonStyle}">
+                                                    <Setter Property="Margin" Value="0,0,0,10" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="Tag" Value="Selected" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextWrapping="Wrap" />
+                                                <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Subtitle}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </Border>
                 </StackPanel>

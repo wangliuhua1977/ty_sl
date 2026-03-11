@@ -24,7 +24,7 @@ public sealed class OpenPlatformSignatureGenerator
     {
         if (!requestData.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
         {
-            throw new OpenPlatformException($"生成签名时缺少公共参数 {key}。", "missing_signature_parameter");
+            throw new OpenPlatformException($"\u751f\u6210\u7b7e\u540d\u65f6\u7f3a\u5c11\u516c\u5171\u53c2\u6570 {key}\u3002", "missing_signature_parameter");
         }
 
         return value;

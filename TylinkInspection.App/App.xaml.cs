@@ -17,14 +17,21 @@ public partial class App : Application
         base.OnStartup(e);
 
         var themeService = new ThemeService(Resources);
-        themeService.ApplyTheme(ThemeKind.TechnologySituation);
+        var themePreferenceStore = new JsonThemePreferenceStore();
+        var startupTheme = ThemePreferenceMapper.ResolveStoredOrDefault(themeService, themePreferenceStore.Load()?.ThemeKey);
+        themeService.ApplyTheme(startupTheme);
 
         var optionsValidator = new OpenPlatformOptionsValidator();
         var optionsProvider = new JsonOpenPlatformOptionsProvider();
+        var mapOptionsProvider = new JsonMapProviderOptionsProvider();
         var tokenCacheRepository = new JsonTokenCacheRepository();
         var aiTaskStore = new JsonAiInspectionTaskStore();
         var aiAlertStore = new JsonAiAlertStore();
         var deviceAlarmStore = new JsonDeviceAlarmStore();
+        var deviceCatalogCacheStore = new JsonDeviceCatalogCacheStore();
+        var deviceInspectionStore = new JsonDeviceInspectionStore();
+        var inspectionScopeStore = new JsonInspectionScopeStore();
+        var manualCoordinateStore = new JsonManualCoordinateStore();
         var paramEncryptor = new XxTeaOpenPlatformParamEncryptor();
         var signatureGenerator = new OpenPlatformSignatureGenerator();
         var requestBuilder = new OpenPlatformRequestBuilder(paramEncryptor, signatureGenerator, optionsValidator);
@@ -39,7 +46,29 @@ public partial class App : Application
         var aiInspectionCenterService = new AiInspectionCenterService(aiTaskStore);
         var aiAlertService = new OpenPlatformAiAlertService(optionsProvider, tokenService, openPlatformClient, aiAlertStore);
         var deviceAlarmService = new OpenPlatformDeviceAlarmService(optionsProvider, tokenService, openPlatformClient, deviceAlarmStore);
-        var systemSettingsPageViewModel = new SystemSettingsPageViewModel(optionsProvider, platformConnectionService, tokenService);
+        var deviceCatalogService = new DeviceCatalogService(optionsProvider, tokenService, openPlatformClient, deviceCatalogCacheStore);
+        var deviceInspectionService = new DeviceInspectionService(optionsProvider, tokenService, openPlatformClient, deviceInspectionStore);
+        var manualCoordinateService = new ManualCoordinateService(manualCoordinateStore);
+        var inspectionSelectionService = new InspectionSelectionService();
+        var inspectionScopeService = new InspectionScopeService(deviceCatalogService, deviceInspectionService, manualCoordinateService, inspectionScopeStore);
+        var mapInspectionPageViewModel = new MapInspectionPageViewModel(
+            workspaceService.GetWorkspaceData(),
+            inspectionScopeService,
+            deviceInspectionService,
+            manualCoordinateService,
+            inspectionSelectionService,
+            mapOptionsProvider.GetOptions());
+        var pointGovernancePageViewModel = new PointGovernancePageViewModel(
+            deviceCatalogService,
+            deviceInspectionService,
+            inspectionScopeService,
+            inspectionSelectionService);
+        var systemSettingsPageViewModel = new SystemSettingsPageViewModel(
+            optionsProvider,
+            platformConnectionService,
+            tokenService,
+            themeService,
+            themePreferenceStore);
         var shellWindow = new ShellWindow
         {
             DataContext = new MainShellViewModel(
@@ -47,6 +76,8 @@ public partial class App : Application
                 aiInspectionCenterService,
                 aiAlertService,
                 deviceAlarmService,
+                mapInspectionPageViewModel,
+                pointGovernancePageViewModel,
                 systemSettingsPageViewModel)
         };
 
