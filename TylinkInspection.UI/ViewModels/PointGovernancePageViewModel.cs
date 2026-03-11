@@ -18,6 +18,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
     private readonly IDeviceInspectionService _deviceInspectionService;
     private readonly IInspectionScopeService _inspectionScopeService;
     private readonly IInspectionSelectionService _inspectionSelectionService;
+    private readonly DeviceMediaReviewViewModel _mediaReview;
     private readonly HashSet<string> _draftIncludedDeviceCodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _draftExcludedDeviceCodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _draftFocusedDeviceCodes = new(StringComparer.OrdinalIgnoreCase);
@@ -62,7 +63,10 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         IDeviceCatalogService deviceCatalogService,
         IDeviceInspectionService deviceInspectionService,
         IInspectionScopeService inspectionScopeService,
-        IInspectionSelectionService inspectionSelectionService)
+        IInspectionSelectionService inspectionSelectionService,
+        IPlaybackReviewService playbackReviewService,
+        IScreenshotSamplingService screenshotSamplingService,
+        ICloudPlaybackService cloudPlaybackService)
         : base(
             "点位治理中心",
             "围绕巡检范围方案组织目录树、点位列表、路径回溯和地图数据过滤结果，先把“范围方案 → 点位治理 → 地图数据源”链路打通。")
@@ -71,6 +75,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         _deviceInspectionService = deviceInspectionService;
         _inspectionScopeService = inspectionScopeService;
         _inspectionSelectionService = inspectionSelectionService;
+        _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
         _inspectionSelectionService.SelectionChanged += OnSelectionChanged;
 
@@ -109,6 +114,8 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
 
     public ObservableCollection<InspectionDirectoryNodeViewModel> EditorDirectoryNodes { get; }
 
+    public DeviceMediaReviewViewModel MediaReview => _mediaReview;
+
     public InspectionDirectoryNodeViewModel? SelectedDirectory
     {
         get => _selectedDirectory;
@@ -130,7 +137,17 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         {
             if (SetProperty(ref _selectedDevice, value))
             {
+                if (value is not null)
+                {
+                    _mediaReview.Clear();
+                }
+
                 _ = LoadSelectedDeviceProfileAsync(forceRefresh: false);
+                if (value is null)
+                {
+                    _mediaReview.Clear();
+                }
+
                 RaisePropertyChanged(nameof(HasSelectedDevice));
                 RaisePropertyChanged(nameof(CanInspectSelectedDevice));
                 PublishSelectedDevice();
@@ -936,6 +953,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
             {
                 SelectedDeviceProfile = null;
                 SelectedInspectionResult = null;
+                SyncMediaReviewContext();
                 DetailStatusText = "请选择一个点位查看基础信息、路径回溯和后续巡检入口。";
                 DetailErrorText = string.Empty;
                 InspectionStatusText = "请选择点位后执行基础巡检。";
@@ -956,6 +974,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         {
             SelectedDeviceProfile = await Task.Run(() => _deviceCatalogService.GetDeviceProfile(SelectedDevice.DeviceCode, BuildProfileSeed(SelectedDevice)));
             SelectedInspectionResult = ResolveLatestInspection(SelectedDevice.DeviceCode);
+            SyncMediaReviewContext();
             InspectionStatusText = SelectedInspectionResult is null
                 ? "当前点位尚未执行基础巡检，可直接发起单点巡检。"
                 : $"最近基础巡检：{SelectedInspectionResult.PlaybackHealthSummary} / {SelectedInspectionResult.RecheckText}";
@@ -967,6 +986,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
         catch (Exception ex)
         {
             SelectedInspectionResult = ResolveLatestInspection(SelectedDevice.DeviceCode);
+            SyncMediaReviewContext();
             DetailErrorText = BuildErrorText(ex);
             DetailStatusText = "点位详情加载失败。";
             InspectionStatusText = SelectedInspectionResult is null
@@ -999,6 +1019,7 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
 
             var result = await Task.Run(() => _deviceInspectionService.Inspect(profile));
             SelectedInspectionResult = result;
+            SyncMediaReviewContext();
             _isSelectionReserved = true;
             RaisePropertyChanged(nameof(InspectionEntryText));
 
@@ -1102,6 +1123,19 @@ public sealed class PointGovernancePageViewModel : PageViewModelBase
             .FirstOrDefault(item => string.Equals(item.Device.DeviceCode, deviceCode, StringComparison.OrdinalIgnoreCase))
             ?.LatestInspection;
         return scopeInspection ?? _deviceInspectionService.GetLatestResult(deviceCode);
+    }
+
+    private void SyncMediaReviewContext()
+    {
+        if (SelectedDevice is null)
+        {
+            _mediaReview.Clear();
+            return;
+        }
+
+        var deviceName = SelectedDeviceProfile?.Device.DeviceName ?? SelectedDevice.DeviceName;
+        var netTypeCode = SelectedDeviceProfile?.Device.NetTypeCode ?? SelectedDevice.Device.NetTypeCode;
+        _mediaReview.BindTarget(SelectedDevice.DeviceCode, deviceName, netTypeCode, SelectedInspectionResult);
     }
 
     private void PublishSelectedDevice()

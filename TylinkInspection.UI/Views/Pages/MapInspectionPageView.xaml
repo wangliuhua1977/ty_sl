@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+             xmlns:sharedPages="clr-namespace:TylinkInspection.UI.Views.Pages.Shared"
              xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
              mc:Ignorable="d"
              Loaded="OnLoaded">
@@ -334,6 +335,8 @@
                             </Grid>
                         </StackPanel>
                     </Border>
+
+                    <sharedPages:DeviceMediaReviewPanelView DataContext="{Binding MediaReview}" />
 
                     <Border Style="{StaticResource PanelCardStyle}">
                         <StackPanel>

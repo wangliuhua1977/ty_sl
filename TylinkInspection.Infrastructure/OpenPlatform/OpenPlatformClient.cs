@@ -7,6 +7,8 @@ namespace TylinkInspection.Infrastructure.OpenPlatform;
 
 public sealed class OpenPlatformClient : IOpenPlatformClient
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
+
     private readonly OpenPlatformRequestBuilder _requestBuilder;
     private readonly OpenPlatformFormSender _formSender;
     private readonly IOpenPlatformResponseDecryptor _responseDecryptor;
@@ -47,15 +49,29 @@ public sealed class OpenPlatformClient : IOpenPlatformClient
         if (dataElement.ValueKind == JsonValueKind.String)
         {
             var decrypted = _responseDecryptor.Decrypt(dataElement.GetString() ?? string.Empty, options.AppSecret, options.RsaPrivateKey, options.Version);
-            var data = JsonSerializer.Deserialize<T>(decrypted, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            return new OpenPlatformResponseEnvelope<T> { Code = code, Message = message, Data = data };
+            return new OpenPlatformResponseEnvelope<T>
+            {
+                Code = code,
+                Message = message,
+                Data = DeserializeDecrypted<T>(decrypted)
+            };
         }
 
         return new OpenPlatformResponseEnvelope<T>
         {
             Code = code,
             Message = message,
-            Data = JsonSerializer.Deserialize<T>(dataElement.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            Data = JsonSerializer.Deserialize<T>(dataElement.GetRawText(), SerializerOptions)
         };
+    }
+
+    private static T? DeserializeDecrypted<T>(string decrypted)
+    {
+        if (typeof(T) == typeof(string))
+        {
+            return (T)(object)decrypted;
+        }
+
+        return JsonSerializer.Deserialize<T>(decrypted, SerializerOptions);
     }
 }

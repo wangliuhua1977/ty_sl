@@ -71,11 +71,21 @@ public sealed class LocalAiAlertService : IAiAlertService
             CreateTime = current.CreateTime,
             UpdateTime = DateTimeOffset.Now,
             SnapshotImageUrl = current.SnapshotImageUrl,
+            ThumbnailImageUrl = current.ThumbnailImageUrl,
+            BackgroundImageUrl = current.BackgroundImageUrl,
             DownloadUrl = current.DownloadUrl,
             DownloadToken = current.DownloadToken,
             DownloadUrlExpireAt = current.DownloadUrlExpireAt,
             DownloadUrlRefreshStrategy = current.DownloadUrlRefreshStrategy,
-            ReviewNote = string.IsNullOrWhiteSpace(reviewNote) ? current.ReviewNote : reviewNote.Trim()
+            CloudFileId = current.CloudFileId,
+            CloudFileName = current.CloudFileName,
+            CloudFileIconUrl = current.CloudFileIconUrl,
+            WebUrl = current.WebUrl,
+            ReviewNote = string.IsNullOrWhiteSpace(reviewNote) ? current.ReviewNote : reviewNote.Trim(),
+            Similarity = current.Similarity,
+            CarNumber = current.CarNumber,
+            UserName = current.UserName,
+            Remark = current.Remark
         };
 
         _alertStore.SaveAll(alerts);
@@ -200,11 +210,21 @@ public sealed class LocalAiAlertService : IAiAlertService
             CreateTime = createTime,
             UpdateTime = createTime.AddMinutes(2),
             SnapshotImageUrl = $"mock://snapshot/{id}",
+            ThumbnailImageUrl = $"mock://thumbnail/{id}",
+            BackgroundImageUrl = $"mock://background/{id}",
             DownloadUrl = $"mock://download/{id}",
             DownloadToken = $"mock-token-{id}",
             DownloadUrlExpireAt = createTime.AddDays(1),
-            DownloadUrlRefreshStrategy = "下载地址过期后，后续通过真实详情接口刷新。",
-            ReviewNote = null
+            DownloadUrlRefreshStrategy = "下载地址过期后，可重新查询详情刷新。",
+            CloudFileId = $"cloud-{id}",
+            CloudFileName = $"{deviceCode}_{createTime:yyyyMMddHHmmss}.mp4",
+            CloudFileIconUrl = $"mock://cloud-icon/{id}",
+            WebUrl = $"mock://web/{id}",
+            ReviewNote = null,
+            Similarity = null,
+            CarNumber = null,
+            UserName = null,
+            Remark = null
         };
     }
 

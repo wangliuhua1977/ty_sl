@@ -35,23 +35,12 @@ public abstract class OpenPlatformAlarmServiceBase
 
     protected OpenPlatformResponseEnvelope<JsonElement> Execute(string endpointPath, IReadOnlyDictionary<string, string> privateParameters)
     {
-        try
-        {
-            var options = _optionsProvider.GetOptions();
-            return _openPlatformClient.Execute<JsonElement>(endpointPath, BuildAuthorizedParameters(privateParameters, options), options);
-        }
-        catch (OpenPlatformException ex)
-        {
-            throw Translate(ex);
-        }
-        catch (PlatformServiceException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            throw new PlatformServiceException("\u5f00\u653e\u5e73\u53f0\u8c03\u7528\u5931\u8d25\u3002", PlatformErrorCategory.Unknown, null, ex);
-        }
+        return ExecuteCore<JsonElement>(endpointPath, privateParameters);
+    }
+
+    protected OpenPlatformResponseEnvelope<string> ExecuteText(string endpointPath, IReadOnlyDictionary<string, string> privateParameters)
+    {
+        return ExecuteCore<string>(endpointPath, privateParameters);
     }
 
     protected static JsonElement UnwrapResponseData(JsonElement element)
@@ -226,6 +215,27 @@ public abstract class OpenPlatformAlarmServiceBase
     protected static string NormalizeText(string? value, string fallback)
     {
         return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    private OpenPlatformResponseEnvelope<T> ExecuteCore<T>(string endpointPath, IReadOnlyDictionary<string, string> privateParameters)
+    {
+        try
+        {
+            var options = _optionsProvider.GetOptions();
+            return _openPlatformClient.Execute<T>(endpointPath, BuildAuthorizedParameters(privateParameters, options), options);
+        }
+        catch (OpenPlatformException ex)
+        {
+            throw Translate(ex);
+        }
+        catch (PlatformServiceException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new PlatformServiceException("\u5f00\u653e\u5e73\u53f0\u8c03\u7528\u5931\u8d25\u3002", PlatformErrorCategory.Unknown, null, ex);
+        }
     }
 
     private IReadOnlyDictionary<string, string> BuildAuthorizedParameters(IReadOnlyDictionary<string, string> privateParameters, TylinkOpenPlatformOptions options)

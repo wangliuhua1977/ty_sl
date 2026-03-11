@@ -7,6 +7,7 @@ namespace TylinkInspection.Services;
 public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, IAiAlertService
 {
     private const string ListEndpoint = "/open/token/AIAlarm/getAlertInfoList";
+    private const string DetailEndpoint = "/open/token/AIAlarm/getAlertInfoDetail";
     private const int DefaultAlertType = 3;
 
     private readonly IAiAlertStore _alertStore;
@@ -35,6 +36,7 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
         var remoteDetails = items
             .Select(MapToDetail)
             .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+            .Select(TryHydrateDetail)
             .DistinctBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -106,11 +108,21 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
             CreateTime = current.CreateTime,
             UpdateTime = DateTimeOffset.Now,
             SnapshotImageUrl = current.SnapshotImageUrl,
+            ThumbnailImageUrl = current.ThumbnailImageUrl,
+            BackgroundImageUrl = current.BackgroundImageUrl,
             DownloadUrl = current.DownloadUrl,
             DownloadToken = current.DownloadToken,
             DownloadUrlExpireAt = current.DownloadUrlExpireAt,
             DownloadUrlRefreshStrategy = current.DownloadUrlRefreshStrategy,
-            ReviewNote = string.IsNullOrWhiteSpace(reviewNote) ? current.ReviewNote : reviewNote.Trim()
+            CloudFileId = current.CloudFileId,
+            CloudFileName = current.CloudFileName,
+            CloudFileIconUrl = current.CloudFileIconUrl,
+            WebUrl = current.WebUrl,
+            ReviewNote = string.IsNullOrWhiteSpace(reviewNote) ? current.ReviewNote : reviewNote.Trim(),
+            Similarity = current.Similarity,
+            CarNumber = current.CarNumber,
+            UserName = current.UserName,
+            Remark = current.Remark
         };
 
         _alertStore.SaveAll(alerts);
@@ -200,12 +212,22 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
                     Summary = remoteDetail.Summary,
                     CreateTime = remoteDetail.CreateTime,
                     UpdateTime = remoteDetail.UpdateTime,
-                    SnapshotImageUrl = current.SnapshotImageUrl,
-                    DownloadUrl = current.DownloadUrl,
-                    DownloadToken = current.DownloadToken,
-                    DownloadUrlExpireAt = current.DownloadUrlExpireAt,
-                    DownloadUrlRefreshStrategy = current.DownloadUrlRefreshStrategy ?? remoteDetail.DownloadUrlRefreshStrategy,
-                    ReviewNote = current.ReviewNote
+                    SnapshotImageUrl = FirstNonEmpty(current.SnapshotImageUrl, remoteDetail.SnapshotImageUrl),
+                    ThumbnailImageUrl = FirstNonEmpty(current.ThumbnailImageUrl, remoteDetail.ThumbnailImageUrl),
+                    BackgroundImageUrl = FirstNonEmpty(current.BackgroundImageUrl, remoteDetail.BackgroundImageUrl),
+                    DownloadUrl = FirstNonEmpty(current.DownloadUrl, remoteDetail.DownloadUrl),
+                    DownloadToken = FirstNonEmpty(current.DownloadToken, remoteDetail.DownloadToken),
+                    DownloadUrlExpireAt = current.DownloadUrlExpireAt ?? remoteDetail.DownloadUrlExpireAt,
+                    DownloadUrlRefreshStrategy = FirstNonEmpty(current.DownloadUrlRefreshStrategy, remoteDetail.DownloadUrlRefreshStrategy),
+                    CloudFileId = FirstNonEmpty(current.CloudFileId, remoteDetail.CloudFileId),
+                    CloudFileName = FirstNonEmpty(current.CloudFileName, remoteDetail.CloudFileName),
+                    CloudFileIconUrl = FirstNonEmpty(current.CloudFileIconUrl, remoteDetail.CloudFileIconUrl),
+                    WebUrl = FirstNonEmpty(current.WebUrl, remoteDetail.WebUrl),
+                    ReviewNote = current.ReviewNote,
+                    Similarity = FirstNonEmpty(current.Similarity, remoteDetail.Similarity),
+                    CarNumber = FirstNonEmpty(current.CarNumber, remoteDetail.CarNumber),
+                    UserName = FirstNonEmpty(current.UserName, remoteDetail.UserName),
+                    Remark = FirstNonEmpty(current.Remark, remoteDetail.Remark)
                 };
             }
             else
@@ -263,7 +285,7 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
         var msgId = ReadString(item, "msgId", "msgReqNo", "id");
         var alertType = ReadInt32(item, "alertType") ?? 0;
         var alertSource = ReadInt32(item, "alertSource") ?? 0;
-        var content = NormalizeText(ReadString(item, "content", "msgType"), "\u5e73\u53f0\u672a\u8fd4\u56de\u544a\u8b66\u6458\u8981");
+        var content = NormalizeText(ReadString(item, "content", "msgType"), "平台未返回告警摘要");
         var createTime = ReadDateTimeOffset(item, "createTime", "alertTime") ?? DateTimeOffset.Now;
 
         return new AiAlertDetail
@@ -274,7 +296,7 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
             AlertType = alertType,
             AlertTypeName = ResolveAiAlertTypeName(alertType),
             DeviceCode = NormalizeText(ReadString(item, "deviceCode"), "--"),
-            DeviceName = NormalizeText(ReadString(item, "deviceName"), "\u672a\u547d\u540d\u8bbe\u5907"),
+            DeviceName = NormalizeText(ReadString(item, "deviceName"), "未命名设备"),
             AlertSource = alertSource,
             AlertSourceName = ResolveAlertSourceName(alertSource),
             PlatformStatus = ReadInt32(item, "status"),
@@ -287,37 +309,133 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
             CreateTime = createTime,
             UpdateTime = ReadDateTimeOffset(item, "updateTime"),
             SnapshotImageUrl = null,
+            ThumbnailImageUrl = null,
+            BackgroundImageUrl = null,
             DownloadUrl = null,
             DownloadToken = null,
             DownloadUrlExpireAt = null,
-            DownloadUrlRefreshStrategy = "\u540e\u7eed\u63a5\u5165\u771f\u5b9e\u8be6\u60c5\u63a5\u53e3\u540e\u5237\u65b0\u3002",
-            ReviewNote = null
+            DownloadUrlRefreshStrategy = "后续接入真实详情接口后刷新。",
+            CloudFileId = null,
+            CloudFileName = null,
+            CloudFileIconUrl = null,
+            WebUrl = null,
+            ReviewNote = null,
+            Similarity = null,
+            CarNumber = null,
+            UserName = null,
+            Remark = null
         };
+    }
+
+    private AiAlertDetail TryHydrateDetail(AiAlertDetail summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary.MsgId) ||
+            string.IsNullOrWhiteSpace(summary.DeviceCode))
+        {
+            return summary;
+        }
+
+        try
+        {
+            var response = Execute(DetailEndpoint, new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["msgId"] = summary.MsgId,
+                ["alertType"] = summary.AlertType.ToString(),
+                ["deviceCode"] = summary.DeviceCode
+            });
+            var detailRoot = UnwrapDetailRoot(response.Data);
+            var paramsRoot = TryGetPropertyIgnoreCase(detailRoot, "params", out var paramsElement)
+                ? paramsElement
+                : detailRoot;
+
+            return new AiAlertDetail
+            {
+                Id = summary.Id,
+                MsgId = summary.MsgId,
+                PlatformAlertId = summary.PlatformAlertId,
+                AlertType = summary.AlertType,
+                AlertTypeName = summary.AlertTypeName,
+                DeviceCode = NormalizeText(ReadString(detailRoot, "deviceCode"), summary.DeviceCode),
+                DeviceName = summary.DeviceName,
+                AlertSource = summary.AlertSource,
+                AlertSourceName = summary.AlertSourceName,
+                PlatformStatus = summary.PlatformStatus,
+                PlatformStatusText = summary.PlatformStatusText,
+                PlatformMessageRequestNo = summary.PlatformMessageRequestNo,
+                FeatureId = ReadInt32(detailRoot, "featureId") ?? ReadInt32(paramsRoot, "featureId") ?? summary.FeatureId,
+                WorkflowStatus = summary.WorkflowStatus,
+                Content = summary.Content,
+                Summary = summary.Summary,
+                CreateTime = summary.CreateTime,
+                UpdateTime = summary.UpdateTime,
+                SnapshotImageUrl = FirstNonEmpty(
+                    ReadString(paramsRoot, "catchPatImageUrl"),
+                    ReadString(paramsRoot, "imageUrl"),
+                    ReadString(paramsRoot, "bgImageUrl"),
+                    ReadString(paramsRoot, "cloudFileIconUrl")),
+                ThumbnailImageUrl = FirstNonEmpty(
+                    ReadString(paramsRoot, "imageUrl"),
+                    ReadString(paramsRoot, "cloudFileIconUrl")),
+                BackgroundImageUrl = ReadString(paramsRoot, "bgImageUrl"),
+                DownloadUrl = FirstNonEmpty(
+                    ReadString(paramsRoot, "cloudFileDownUrl"),
+                    ReadString(paramsRoot, "webUrl")),
+                DownloadToken = summary.DownloadToken,
+                DownloadUrlExpireAt = summary.CreateTime.AddDays(1),
+                DownloadUrlRefreshStrategy = "AI 告警详情证据图链接存在有效期，过期后重新查询详情刷新。",
+                CloudFileId = ReadString(paramsRoot, "cloudFileId"),
+                CloudFileName = ReadString(paramsRoot, "cloudFileName"),
+                CloudFileIconUrl = ReadString(paramsRoot, "cloudFileIconUrl"),
+                WebUrl = ReadString(paramsRoot, "webUrl"),
+                ReviewNote = summary.ReviewNote,
+                Similarity = ReadString(paramsRoot, "similarity"),
+                CarNumber = ReadString(paramsRoot, "carNum"),
+                UserName = ReadString(paramsRoot, "userName"),
+                Remark = ReadString(paramsRoot, "remark")
+            };
+        }
+        catch
+        {
+            return summary;
+        }
+    }
+
+    private static JsonElement UnwrapDetailRoot(JsonElement element)
+    {
+        var unwrapped = UnwrapResponseData(element);
+        if (unwrapped.ValueKind == JsonValueKind.Object &&
+            TryGetPropertyIgnoreCase(unwrapped, "data", out var nestedData) &&
+            nestedData.ValueKind == JsonValueKind.Object)
+        {
+            return nestedData;
+        }
+
+        return unwrapped;
     }
 
     private static string ResolveAiAlertTypeName(int alertType)
     {
         return alertType switch
         {
-            3 => "\u753b\u9762\u5f02\u5e38\u5de1\u68c0",
-            5 => "\u533a\u57df\u5165\u4fb5",
-            12 => "\u5ba2\u6d41\u7edf\u8ba1",
-            13 => "\u53a8\u5e3d\u8bc6\u522b",
-            14 => "\u62bd\u70df\u8bc6\u522b",
-            15 => "\u53e3\u7f69\u8bc6\u522b",
-            16 => "\u73a9\u624b\u673a\u8bc6\u522b",
-            17 => "\u706b\u60c5\u8bc6\u522b",
-            18 => "\u4eba\u8138\u5e03\u63a7",
-            19 => "\u8f66\u724c\u5e03\u63a7",
-            20 => "\u5e73\u5b89\u6167\u773c\u533a\u57df\u5165\u4fb5",
-            21 => "\u5927\u8c61\u8bc6\u522b",
-            22 => "\u7535\u52a8\u8f66\u8bc6\u522b",
-            23 => "\u6c34\u57df\u76d1\u63a7-\u533a\u57df\u5165\u4fb5",
-            24 => "\u6c34\u57df\u76d1\u63a7-\u6ede\u7559\u544a\u8b66",
-            25 => "\u4eba\u7fa4\u805a\u96c6\u68c0\u6d4b",
-            26 => "\u533b\u7528\u9632\u62a4\u670d\u68c0\u6d4b",
-            27 => "\u9ad8\u7a7a\u629b\u7269",
-            _ => $"AI\u544a\u8b66\u7c7b\u578b {alertType}"
+            3 => "画面异常巡检",
+            5 => "区域入侵",
+            12 => "客流统计",
+            13 => "厨帽识别",
+            14 => "抽烟识别",
+            15 => "口罩识别",
+            16 => "玩手机识别",
+            17 => "火情识别",
+            18 => "人脸布控",
+            19 => "车牌布控",
+            20 => "平安慧眼区域入侵",
+            21 => "大象识别",
+            22 => "电动车识别",
+            23 => "水域监控-区域入侵",
+            24 => "水域监控-滞留告警",
+            25 => "人群聚集检测",
+            26 => "医用防护服检测",
+            27 => "高空抛物",
+            _ => $"AI告警类型 {alertType}"
         };
     }
 
@@ -325,11 +443,11 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
     {
         return alertSource switch
         {
-            1 => "\u7aef\u4fa7",
-            2 => "\u4e91\u5316",
-            3 => "\u4e91\u6d4b-AI\u80fd\u529b\u4e2d\u53f0",
-            4 => "\u5e73\u5b89\u6167\u773c",
-            _ => $"\u6765\u6e90 {alertSource}"
+            1 => "端侧",
+            2 => "云化",
+            3 => "云测-AI能力中台",
+            4 => "平安慧眼",
+            _ => $"来源 {alertSource}"
         };
     }
 
@@ -337,11 +455,11 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
     {
         return status switch
         {
-            0 => "\u672a\u8bfb",
-            1 => "\u5df2\u8bfb",
-            3 => "\u514d\u6253\u6270",
+            0 => "未读",
+            1 => "已读",
+            3 => "免打扰",
             null => "--",
-            _ => $"\u72b6\u6001 {status}"
+            _ => $"状态 {status}"
         };
     }
 
@@ -356,5 +474,10 @@ public sealed class OpenPlatformAiAlertService : OpenPlatformAlarmServiceBase, I
             AiAlertWorkflowStatus.Recovered => "ToneSuccessBrush",
             _ => "ToneWarningBrush"
         };
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
     }
 }

@@ -87,6 +87,15 @@ public sealed class MockInspectionWorkspaceService : IInspectionWorkspaceService
                 [Highlight("人工复核队列", "杭州西站 08", "检测到遮挡告警与离线告警冲突，当前需人工确认真实状态。", "ToneInfoBrush"), Highlight("复核规则快照", "双人复核策略生效", "高优告警需两级确认后才能关闭，当前仅做壳层展示。", "ToneFocusBrush")],
                 [Feed("复核记录 #A103", "苏州园区 17 已由值班员完成确认并回写。", "11:02", "ToneSuccessBrush"), Feed("复核记录 #A101", "虹桥枢纽 01 被驳回，要求重新拉取视频片段。", "10:31", "ToneDangerBrush"), Feed("复核记录 #A098", "杭州西站 08 进入升级审核。", "10:08", "ToneInfoBrush"), Feed("复核记录 #A091", "重点关注点位完成闭环。", "09:36", "TonePrimaryBrush")]
             ),
+            FaultClosureCenterPage = BuildModulePage(
+                "故障闭环中心",
+                "承接人工复核结论，打通本地派单草稿、复检队列、销警条件与闭环状态机。",
+                "LOCAL LOOP",
+                "ToneWarningBrush",
+                [Metric("待派单", "11", "条", "含 4 条高优先级", "ToneWarningBrush"), Metric("待复检", "8", "条", "复用基础巡检能力", "ToneDangerBrush"), Metric("待销警", "3", "条", "待人工确认恢复", "ToneFocusBrush"), Metric("已闭环", "26", "条", "本地闭环沉淀", "ToneSuccessBrush")],
+                [Highlight("闭环主线", "复核 -> 派单草稿 -> 复检 -> 销警", "当前先完成本地流程闭环，不接真实工单和真实销警接口。", "ToneWarningBrush"), Highlight("能力复用", "直接复用基础巡检与轻量播放器宿主", "复检先走已有基础巡检与播放复核链路，避免拆出新服务支线。", "ToneInfoBrush")],
+                [Feed("闭环记录 #FC102", "杭州西站 08 进入待复检队列。", "11:10", "ToneDangerBrush"), Feed("闭环记录 #FC099", "苏州园区 17 已生成本地派单草稿。", "10:44", "ToneWarningBrush"), Feed("闭环记录 #FC091", "虹桥枢纽 01 复检通过，等待销警确认。", "10:05", "ToneFocusBrush"), Feed("闭环记录 #FC088", "重点点位闭环记录已完成本地销警。", "09:36", "ToneSuccessBrush")]
+            ),
             AiAlertCenterPage = BuildModulePage(
                 "AI告警中心",
                 "聚合 AI 异常识别结果、人工确认、派单与恢复状态，当前仅使用本地模拟数据。",

@@ -22,6 +22,8 @@ public sealed class InspectionWorkspaceData
 
     public required ModulePageData ReviewCenterPage { get; init; }
 
+    public required ModulePageData FaultClosureCenterPage { get; init; }
+
     public required ModulePageData AiAlertCenterPage { get; init; }
 
     public required ModulePageData PointGovernancePage { get; init; }

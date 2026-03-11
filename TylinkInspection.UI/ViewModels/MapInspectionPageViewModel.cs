@@ -14,6 +14,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
     private readonly IDeviceInspectionService _deviceInspectionService;
     private readonly IManualCoordinateService _manualCoordinateService;
     private readonly IInspectionSelectionService _inspectionSelectionService;
+    private readonly DeviceMediaReviewViewModel _mediaReview;
 
     private InspectionScopeResult? _scopeResult;
     private DeviceInspectionResult? _selectedInspectionResult;
@@ -48,6 +49,9 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         IDeviceInspectionService deviceInspectionService,
         IManualCoordinateService manualCoordinateService,
         IInspectionSelectionService inspectionSelectionService,
+        IPlaybackReviewService playbackReviewService,
+        IScreenshotSamplingService screenshotSamplingService,
+        ICloudPlaybackService cloudPlaybackService,
         AmapMapOptions mapOptions)
         : base("地图巡检台", "地图页正式承载当前巡检范围点位、真实高德地图和人工坐标治理，坐标统一按 GCJ-02 处理。")
     {
@@ -55,6 +59,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         _deviceInspectionService = deviceInspectionService;
         _manualCoordinateService = manualCoordinateService;
         _inspectionSelectionService = inspectionSelectionService;
+        _mediaReview = new DeviceMediaReviewViewModel(playbackReviewService, screenshotSamplingService, cloudPlaybackService);
         MapOptions = mapOptions;
 
         _inspectionScopeService.ScopeChanged += OnScopeChanged;
@@ -112,6 +117,8 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
     public ObservableCollection<SelectionItemViewModel> MissingCoordinateItems { get; }
 
     public CurrentTaskStatus CurrentTask { get; }
+
+    public DeviceMediaReviewViewModel MediaReview => _mediaReview;
 
     public DeviceInspectionResult? SelectedInspectionResult
     {
@@ -521,6 +528,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         {
             var result = await Task.Run(() => _deviceInspectionService.Inspect(scopeDevice));
             SelectedInspectionResult = result;
+            SyncMediaReviewContext();
             InspectionStatusText = $"基础巡检完成：{result.PlaybackHealthSummary} / {result.RecheckText}";
             InspectionAlertText = result.IsAbnormal
                 ? result.HasFailureReason ? result.FailureReasonText : result.SuggestionText
@@ -580,6 +588,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
                 : "当前未配置人工坐标备注。"
             : manualCoordinate!.Remark;
         SelectedInspectionResult = scopeDevice?.LatestInspection;
+        SyncMediaReviewContext();
 
         EditorLongitude = manualCoordinate?.Longitude.ToString("F6", CultureInfo.InvariantCulture)
             ?? mapPoint.Longitude?.ToString("F6", CultureInfo.InvariantCulture)
@@ -625,6 +634,7 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         SelectedCoordinateUpdatedText = "--";
         SelectedCoordinateRemarkText = "暂无人工备注";
         SelectedInspectionResult = null;
+        SyncMediaReviewContext();
         EditorLongitude = string.Empty;
         EditorLatitude = string.Empty;
         EditorRemark = string.Empty;
@@ -642,6 +652,30 @@ public sealed class MapInspectionPageViewModel : PageViewModelBase
         {
             PublishSelectedPoint();
         }
+    }
+
+    private void SyncMediaReviewContext()
+    {
+        if (_scopeResult is null || !HasSelectedPoint)
+        {
+            _mediaReview.Clear();
+            return;
+        }
+
+        var scopeDevice = _scopeResult.Devices.FirstOrDefault(item =>
+            string.Equals(item.Device.DeviceCode, SelectedPointDeviceCode, StringComparison.OrdinalIgnoreCase));
+
+        if (scopeDevice is null)
+        {
+            _mediaReview.Clear();
+            return;
+        }
+
+        _mediaReview.BindTarget(
+            scopeDevice.Device.DeviceCode,
+            scopeDevice.Device.DeviceName,
+            scopeDevice.Device.NetTypeCode,
+            SelectedInspectionResult);
     }
 
     private void PublishSelectedPoint()

@@ -11,6 +11,9 @@
     <DataTemplate DataType="{x:Type viewModels:ReviewCenterPageViewModel}">
         <pages:ReviewCenterPageView />
     </DataTemplate>
+    <DataTemplate DataType="{x:Type viewModels:FaultClosureCenterPageViewModel}">
+        <pages:FaultClosureCenterPageView />
+    </DataTemplate>
     <DataTemplate DataType="{x:Type viewModels:AiAlertCenterPageViewModel}">
         <pages:AiAlertCenterPageView />
     </DataTemplate>

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tylink Light Player Host</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #071018;
+            color: #d7f6ff;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            overflow: hidden;
+        }
+
+        .stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at top right, rgba(34, 185, 255, 0.16), transparent 34%),
+                linear-gradient(160deg, rgba(7, 16, 24, 1), rgba(4, 9, 14, 1));
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+            background: #02070b;
+            object-fit: contain;
+        }
+
+        .overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 14px;
+            box-sizing: border-box;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border: 1px solid rgba(56, 198, 255, 0.38);
+            background: rgba(3, 17, 26, 0.76);
+            color: #7ce6ff;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .status-box {
+            max-width: 92%;
+            padding: 10px 12px;
+            background: rgba(4, 14, 22, 0.82);
+            border: 1px solid rgba(68, 193, 255, 0.22);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+        }
+
+        .status-title {
+            margin: 0 0 6px;
+            font-size: 12px;
+            color: #8ad8ff;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .status-text {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.45;
+            color: #d7f6ff;
+        }
+
+        .status-text.error {
+            color: #ff9898;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.19/dist/hls.min.js"></script>
+</head>
+<body>
+    <div class="stage">
+        <video id="player" autoplay muted playsinline controls></video>
+        <div class="overlay">
+            <div class="badge-row">
+                <div class="badge">WebView2 Host</div>
+                <div class="badge" id="protocolBadge">Idle</div>
+            </div>
+            <div class="status-box">
+                <div class="status-title">Light Review</div>
+                <p class="status-text" id="statusText">等待点位加载直播或回看复核。</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const video = document.getElementById("player");
+            const statusText = document.getElementById("statusText");
+            const protocolBadge = document.getElementById("protocolBadge");
+
+            const state = {
+                session: null,
+                sourceIndex: -1,
+                activeSource: null,
+                startedAt: 0,
+                firstFrameReported: false,
+                timeoutHandle: null,
+                hlsInstance: null,
+                webRtcPeer: null,
+                webRtcStream: null,
+                lastError: "",
+                hostRequestSeq: 0,
+                pendingRequests: new Map()
+            };
+
+            function send(type, payload) {
+                const message = Object.assign({ type: type }, payload || {});
+                if (window.chrome && window.chrome.webview) {
+                    window.chrome.webview.postMessage(message);
+                }
+            }
+
+            function setStatus(message, isError) {
+                statusText.textContent = message || "";
+                statusText.classList.toggle("error", !!isError);
+                send("status", {
+                    sessionId: state.session ? state.session.sessionId : "",
+                    message: message || ""
+                });
+            }
+
+            function setProtocol(protocol) {
+                protocolBadge.textContent = protocol || "Idle";
+            }
+
+            function clearTimer() {
+                if (state.timeoutHandle) {
+                    window.clearTimeout(state.timeoutHandle);
+                    state.timeoutHandle = null;
+                }
+            }
+
+            function destroyHls() {
+                if (state.hlsInstance) {
+                    state.hlsInstance.destroy();
+                    state.hlsInstance = null;
+                }
+            }
+
+            function rejectPendingRequests(reason) {
+                state.pendingRequests.forEach(function (entry) {
+                    if (entry.timeoutHandle) {
+                        window.clearTimeout(entry.timeoutHandle);
+                    }
+                    entry.reject(new Error(reason || "WebRTC 信令已取消。"));
+                });
+                state.pendingRequests.clear();
+            }
+
+            function destroyWebRtc() {
+                rejectPendingRequests("WebRTC 信令已取消。");
+
+                if (state.webRtcPeer) {
+                    try {
+                        state.webRtcPeer.ontrack = null;
+                        state.webRtcPeer.onconnectionstatechange = null;
+                        state.webRtcPeer.close();
+                    } catch (_) {
+                    }
+                    state.webRtcPeer = null;
+                }
+
+                state.webRtcStream = null;
+                if ("srcObject" in video) {
+                    video.srcObject = null;
+                }
+            }
+
+            function resetPlayerSurface() {
+                clearTimer();
+                destroyHls();
+                destroyWebRtc();
+                video.pause();
+                if ("srcObject" in video) {
+                    video.srcObject = null;
+                }
+                video.removeAttribute("src");
+                video.load();
+                state.activeSource = null;
+                state.firstFrameReported = false;
+                state.startedAt = 0;
+            }
+
+            function normalizeProtocol(source) {
+                return source && source.protocol ? source.protocol : "UNKNOWN";
+            }
+
+            function usedFallback(index, source) {
+                return index > 0 || !!(source && source.isFallback);
+            }
+
+            function handleFatalFailure(message) {
+                setProtocol("FAILED");
+                setStatus(message || "全部候选流复核失败。", true);
+                send("finalFailure", {
+                    sessionId: state.session ? state.session.sessionId : "",
+                    protocol: state.activeSource ? normalizeProtocol(state.activeSource) : "",
+                    url: state.activeSource ? state.activeSource.url || "" : "",
+                    usedFallback: usedFallback(state.sourceIndex, state.activeSource),
+                    reason: message || "轻量播放器宿主未能获取到首帧。"
+                });
+            }
+
+            function tryNextSource(reason) {
+                clearTimer();
+                destroyHls();
+
+                if (!state.session || !Array.isArray(state.session.sources)) {
+                    handleFatalFailure(reason || "当前没有可用复核流。");
+                    return;
+                }
+
+                if (state.sourceIndex + 1 >= state.session.sources.length) {
+                    handleFatalFailure(reason || state.lastError || "全部候选流复核失败。");
+                    return;
+                }
+
+                void attemptSource(state.sourceIndex + 1, reason || "");
+            }
+
+            function installPlaybackEvents(source) {
+                const sessionId = state.session ? state.session.sessionId : "";
+
+                video.onplaying = function () {
+                    send("started", {
+                        sessionId: sessionId,
+                        protocol: normalizeProtocol(source),
+                        url: source.url || "",
+                        usedFallback: usedFallback(state.sourceIndex, source)
+                    });
+                };
+
+                video.onloadeddata = function () {
+                    if (state.firstFrameReported) {
+                        return;
+                    }
+
+                    state.firstFrameReported = true;
+                    clearTimer();
+                    const startupDurationMs = Math.max(0, Math.round(performance.now() - state.startedAt));
+                    setStatus(`首帧已就绪，耗时 ${startupDurationMs} ms。`, false);
+                    send("firstFrame", {
+                        sessionId: sessionId,
+                        protocol: normalizeProtocol(source),
+                        url: source.url || "",
+                        usedFallback: usedFallback(state.sourceIndex, source),
+                        startupDurationMs: startupDurationMs
+                    });
+                };
+
+                video.onerror = function () {
+                    state.lastError = "HTML5 视频元素未能加载当前流。";
+                    tryNextSource(state.lastError);
+                };
+            }
+
+            function scheduleTimeout(source) {
+                clearTimer();
+                state.timeoutHandle = window.setTimeout(function () {
+                    state.lastError = `${normalizeProtocol(source)} 在 15 秒内未返回首帧。`;
+                    tryNextSource(state.lastError);
+                }, 15000);
+            }
+
+            function requestWebRtcAnswer(source, offerSdp) {
+                return new Promise(function (resolve, reject) {
+                    if (!(window.chrome && window.chrome.webview)) {
+                        reject(new Error("当前宿主未挂接 WebRTC 信令桥接。"));
+                        return;
+                    }
+
+                    const requestId = `webrtc-${Date.now()}-${++state.hostRequestSeq}`;
+                    const timeoutHandle = window.setTimeout(function () {
+                        state.pendingRequests.delete(requestId);
+                        reject(new Error("WebRTC 信令桥接超时。"));
+                    }, 15000);
+
+                    state.pendingRequests.set(requestId, {
+                        resolve: resolve,
+                        reject: reject,
+                        timeoutHandle: timeoutHandle
+                    });
+
+                    send("webrtcSignalRequest", {
+                        requestId: requestId,
+                        sessionId: state.session ? state.session.sessionId : "",
+                        protocol: normalizeProtocol(source),
+                        url: source.url || "",
+                        offerSdp: offerSdp || ""
+                    });
+                });
+            }
+
+            function createHlsAdapter() {
+                return {
+                    canHandle: function (source) {
+                        if (!source || !source.url) {
+                            return false;
+                        }
+
+                        const protocol = (source.protocol || "").toUpperCase();
+                        return protocol.indexOf("HLS") >= 0 || source.url.toLowerCase().indexOf(".m3u8") >= 0;
+                    },
+                    load: async function (source) {
+                        installPlaybackEvents(source);
+
+                        if (window.Hls && window.Hls.isSupported()) {
+                            state.hlsInstance = new window.Hls({
+                                enableWorker: true,
+                                lowLatencyMode: true,
+                                backBufferLength: 30
+                            });
+                            state.hlsInstance.loadSource(source.url);
+                            state.hlsInstance.attachMedia(video);
+                            state.hlsInstance.on(window.Hls.Events.ERROR, function (_, data) {
+                                if (data && data.fatal) {
+                                    state.lastError = data.details || "HLS 播放器发生致命错误。";
+                                    tryNextSource(state.lastError);
+                                }
+                            });
+                            await video.play().catch(function () { });
+                            return;
+                        }
+
+                        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                            video.src = source.url;
+                            await video.play().catch(function () { });
+                            return;
+                        }
+
+                        throw new Error("当前宿主未检测到可用的 HLS 播放能力。");
+                    }
+                };
+            }
+
+            function createMp4Adapter() {
+                return {
+                    canHandle: function (source) {
+                        if (!source || !source.url) {
+                            return false;
+                        }
+
+                        const lowered = source.url.toLowerCase();
+                        return (lowered.startsWith("http://") || lowered.startsWith("https://")) &&
+                            lowered.indexOf(".mp4") >= 0;
+                    },
+                    load: async function (source) {
+                        installPlaybackEvents(source);
+                        video.src = source.url;
+                        await video.play().catch(function () { });
+                    }
+                };
+            }
+
+            function createRtmpAdapter() {
+                return {
+                    canHandle: function (source) {
+                        if (!source || !source.url) {
+                            return false;
+                        }
+
+                        return (source.protocol || "").toUpperCase().indexOf("RTMP") >= 0 ||
+                            source.url.toLowerCase().startsWith("rtmp://");
+                    },
+                    load: async function () {
+                        throw new Error("当前轻量宿主不支持内嵌 RTMP 播放，请改用 HLS 回看流化地址。");
+                    }
+                };
+            }
+
+            function createWebRtcAdapter() {
+                return {
+                    canHandle: function (source) {
+                        return !!source && (source.protocol || "").toUpperCase().indexOf("WEBRTC") >= 0;
+                    },
+                    load: async function (source) {
+                        installPlaybackEvents(source);
+                        state.webRtcPeer = new RTCPeerConnection();
+                        state.webRtcStream = new MediaStream();
+
+                        state.webRtcPeer.ontrack = function (event) {
+                            if (!state.webRtcStream) {
+                                state.webRtcStream = new MediaStream();
+                            }
+
+                            state.webRtcStream.addTrack(event.track);
+                            if ("srcObject" in video) {
+                                video.srcObject = state.webRtcStream;
+                            }
+                            void video.play().catch(function () { });
+                        };
+
+                        state.webRtcPeer.onconnectionstatechange = function () {
+                            if (!state.webRtcPeer) {
+                                return;
+                            }
+
+                            if (state.webRtcPeer.connectionState === "failed" ||
+                                state.webRtcPeer.connectionState === "disconnected" ||
+                                state.webRtcPeer.connectionState === "closed") {
+                                if (!state.firstFrameReported) {
+                                    state.lastError = `WebRTC 连接状态异常：${state.webRtcPeer.connectionState}`;
+                                    tryNextSource(state.lastError);
+                                }
+                            }
+                        };
+
+                        state.webRtcPeer.addTransceiver("video", { direction: "recvonly" });
+                        state.webRtcPeer.addTransceiver("audio", { direction: "recvonly" });
+
+                        const offer = await state.webRtcPeer.createOffer();
+                        await state.webRtcPeer.setLocalDescription(offer);
+                        setStatus("正在协商 WebRTC 信令...", false);
+                        const answerSdp = await requestWebRtcAnswer(source, offer.sdp || "");
+                        await state.webRtcPeer.setRemoteDescription({
+                            type: "answer",
+                            sdp: answerSdp
+                        });
+                    }
+                };
+            }
+
+            const adapters = [
+                createWebRtcAdapter(),
+                createHlsAdapter(),
+                createMp4Adapter(),
+                createRtmpAdapter()
+            ];
+
+            function selectAdapter(source) {
+                for (let index = 0; index < adapters.length; index += 1) {
+                    if (adapters[index].canHandle(source)) {
+                        return adapters[index];
+                    }
+                }
+
+                return null;
+            }
+
+            async function attemptSource(index, previousError) {
+                if (!state.session || !Array.isArray(state.session.sources)) {
+                    setProtocol("Idle");
+                    setStatus("当前没有可用复核流。", true);
+                    return;
+                }
+
+                const source = state.session.sources[index];
+                state.sourceIndex = index;
+                state.activeSource = source;
+                state.startedAt = performance.now();
+                state.firstFrameReported = false;
+
+                setProtocol(normalizeProtocol(source));
+                setStatus(previousError
+                    ? `${previousError} 正在切换 ${normalizeProtocol(source)}...`
+                    : `正在尝试 ${normalizeProtocol(source)} 复核...`, false);
+
+                send("attempt", {
+                    sessionId: state.session.sessionId,
+                    protocol: normalizeProtocol(source),
+                    url: source.url || "",
+                    usedFallback: usedFallback(index, source)
+                });
+
+                resetPlayerSurface();
+                state.sourceIndex = index;
+                state.activeSource = source;
+                state.startedAt = performance.now();
+
+                const adapter = selectAdapter(source);
+                if (!adapter) {
+                    state.lastError = `${normalizeProtocol(source)} 当前没有可用适配器。`;
+                    tryNextSource(state.lastError);
+                    return;
+                }
+
+                try {
+                    await adapter.load(source);
+                    scheduleTimeout(source);
+                } catch (error) {
+                    state.lastError = error && error.message ? error.message : "播放器适配器加载失败。";
+                    tryNextSource(state.lastError);
+                }
+            }
+
+            function clearSession() {
+                state.session = null;
+                state.sourceIndex = -1;
+                state.lastError = "";
+                resetPlayerSurface();
+                setProtocol("Idle");
+                setStatus("等待点位加载直播或回看复核。", false);
+            }
+
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.addEventListener("message", function (event) {
+                    const message = event && event.data ? event.data : null;
+                    if (!message || message.type !== "webrtcSignalResponse") {
+                        return;
+                    }
+
+                    const pending = state.pendingRequests.get(message.requestId);
+                    if (!pending) {
+                        return;
+                    }
+
+                    state.pendingRequests.delete(message.requestId);
+                    if (pending.timeoutHandle) {
+                        window.clearTimeout(pending.timeoutHandle);
+                    }
+
+                    if (message.ok) {
+                        pending.resolve(message.answerSdp || "");
+                        return;
+                    }
+
+                    pending.reject(new Error(message.reason || "WebRTC 信令协商失败。"));
+                });
+            }
+
+            window.tylinkPlayer = {
+                setSession: function (session) {
+                    if (!session || !Array.isArray(session.sources) || session.sources.length === 0) {
+                        clearSession();
+                        return;
+                    }
+
+                    state.session = session;
+                    state.lastError = "";
+                    void attemptSource(0, "");
+                }
+            };
+
+            send("hostReady", {});
+            clearSession();
+        })();
+    </script>
+</body>
+</html>

@@ -30,6 +30,12 @@ public partial class App : Application
         var deviceAlarmStore = new JsonDeviceAlarmStore();
         var deviceCatalogCacheStore = new JsonDeviceCatalogCacheStore();
         var deviceInspectionStore = new JsonDeviceInspectionStore();
+        var playbackReviewStore = new JsonPlaybackReviewStore();
+        var screenshotSampleStore = new JsonScreenshotSampleStore();
+        var manualReviewStore = new JsonManualReviewStore();
+        var faultClosureStore = new JsonFaultClosureStore();
+        var cloudPlaybackCacheStore = new JsonCloudPlaybackCacheStore();
+        var screenshotArtifactStore = new LocalScreenshotArtifactStore();
         var inspectionScopeStore = new JsonInspectionScopeStore();
         var manualCoordinateStore = new JsonManualCoordinateStore();
         var paramEncryptor = new XxTeaOpenPlatformParamEncryptor();
@@ -48,21 +54,64 @@ public partial class App : Application
         var deviceAlarmService = new OpenPlatformDeviceAlarmService(optionsProvider, tokenService, openPlatformClient, deviceAlarmStore);
         var deviceCatalogService = new DeviceCatalogService(optionsProvider, tokenService, openPlatformClient, deviceCatalogCacheStore);
         var deviceInspectionService = new DeviceInspectionService(optionsProvider, tokenService, openPlatformClient, deviceInspectionStore);
+        var playbackReviewService = new PlaybackReviewService(optionsProvider, tokenService, openPlatformClient, playbackReviewStore, deviceInspectionService);
+        var screenshotSamplingService = new ScreenshotSamplingService(screenshotSampleStore, screenshotArtifactStore);
+        var cloudPlaybackService = new CloudPlaybackService(optionsProvider, tokenService, openPlatformClient, cloudPlaybackCacheStore);
         var manualCoordinateService = new ManualCoordinateService(manualCoordinateStore);
         var inspectionSelectionService = new InspectionSelectionService();
         var inspectionScopeService = new InspectionScopeService(deviceCatalogService, deviceInspectionService, manualCoordinateService, inspectionScopeStore);
+        var faultClosureService = new FaultClosureService(
+            faultClosureStore,
+            manualReviewStore,
+            screenshotSampleStore,
+            playbackReviewStore,
+            aiAlertService,
+            inspectionScopeService,
+            deviceCatalogService,
+            deviceInspectionService);
+        var reviewCenterService = new ReviewCenterService(
+            inspectionScopeService,
+            aiAlertService,
+            aiAlertStore,
+            screenshotSampleStore,
+            playbackReviewStore,
+            manualReviewStore,
+            faultClosureService);
         var mapInspectionPageViewModel = new MapInspectionPageViewModel(
             workspaceService.GetWorkspaceData(),
             inspectionScopeService,
             deviceInspectionService,
             manualCoordinateService,
             inspectionSelectionService,
+            playbackReviewService,
+            screenshotSamplingService,
+            cloudPlaybackService,
             mapOptionsProvider.GetOptions());
         var pointGovernancePageViewModel = new PointGovernancePageViewModel(
             deviceCatalogService,
             deviceInspectionService,
             inspectionScopeService,
-            inspectionSelectionService);
+            inspectionSelectionService,
+            playbackReviewService,
+            screenshotSamplingService,
+            cloudPlaybackService);
+        var reviewCenterPageViewModel = new ReviewCenterPageViewModel(
+            workspaceService.GetWorkspaceData().ReviewCenterPage,
+            reviewCenterService,
+            inspectionScopeService,
+            inspectionSelectionService,
+            playbackReviewService,
+            screenshotSamplingService,
+            cloudPlaybackService);
+        var faultClosureCenterPageViewModel = new FaultClosureCenterPageViewModel(
+            workspaceService.GetWorkspaceData().FaultClosureCenterPage,
+            faultClosureService,
+            inspectionScopeService,
+            deviceCatalogService,
+            deviceInspectionService,
+            playbackReviewService,
+            screenshotSamplingService,
+            cloudPlaybackService);
         var systemSettingsPageViewModel = new SystemSettingsPageViewModel(
             optionsProvider,
             platformConnectionService,
@@ -77,6 +126,8 @@ public partial class App : Application
                 aiAlertService,
                 deviceAlarmService,
                 mapInspectionPageViewModel,
+                reviewCenterPageViewModel,
+                faultClosureCenterPageViewModel,
                 pointGovernancePageViewModel,
                 systemSettingsPageViewModel)
         };

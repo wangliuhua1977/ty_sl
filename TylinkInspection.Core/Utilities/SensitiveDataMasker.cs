@@ -22,6 +22,47 @@ public static class SensitiveDataMasker
         return Mask(value, 8, 6);
     }
 
+    public static string MaskUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "--";
+        }
+
+        var trimmed = value.Trim();
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
+            return Mask(trimmed, 8, 6);
+        }
+
+        var builder = new UriBuilder(uri)
+        {
+            UserName = string.Empty,
+            Password = string.Empty,
+            Fragment = string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(uri.Query))
+        {
+            return builder.Uri.GetLeftPart(UriPartial.Path);
+        }
+
+        var maskedParameters = uri.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(item =>
+            {
+                var parts = item.Split('=', 2);
+                var key = parts[0];
+                return string.IsNullOrWhiteSpace(key)
+                    ? string.Empty
+                    : $"{key}=***";
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item));
+
+        builder.Query = string.Join("&", maskedParameters);
+        return builder.Uri.ToString();
+    }
+
     private static string Mask(string? value, int keepStart, int keepEnd)
     {
         if (string.IsNullOrWhiteSpace(value))
