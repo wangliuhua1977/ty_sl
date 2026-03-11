@@ -62,6 +62,24 @@ public sealed class InspectionScopeService : IInspectionScopeService
         }
     }
 
+    public InspectionScopeResult GetScope(string schemeId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(schemeId);
+
+        lock (_syncRoot)
+        {
+            EnsureReady(forceCatalogRefresh: false);
+
+            var scheme = _state!.Schemes.FirstOrDefault(item => TextComparer.Equals(item.Id, schemeId.Trim()));
+            if (scheme is null)
+            {
+                throw new InvalidOperationException("未找到巡检范围方案。");
+            }
+
+            return BuildResult(scheme);
+        }
+    }
+
     public InspectionScopeScheme SaveScheme(InspectionScopeScheme scheme)
     {
         InspectionScopeScheme savedScheme;
@@ -228,7 +246,11 @@ public sealed class InspectionScopeService : IInspectionScopeService
 
     private InspectionScopeResult BuildResult()
     {
-        var currentScheme = ResolveActiveScheme(_state!);
+        return BuildResult(ResolveActiveScheme(_state!));
+    }
+
+    private InspectionScopeResult BuildResult(InspectionScopeScheme currentScheme)
+    {
         var manualCoordinateLookup = _manualCoordinateService.GetAll()
             .Where(item => !string.IsNullOrWhiteSpace(item.DeviceCode))
             .ToDictionary(item => item.DeviceCode, TextComparer);

@@ -12,6 +12,8 @@ public interface IInspectionScopeService
 
     InspectionScopeResult GetCurrentScope();
 
+    InspectionScopeResult GetScope(string schemeId);
+
     InspectionScopeScheme SaveScheme(InspectionScopeScheme scheme);
 
     void SetCurrentScheme(string schemeId);

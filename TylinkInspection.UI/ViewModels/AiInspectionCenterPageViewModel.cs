@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Input;
 using TylinkInspection.Core.Contracts;
 using TylinkInspection.Core.Models;
@@ -8,82 +9,115 @@ namespace TylinkInspection.UI.ViewModels;
 public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
 {
     private const string AllStatusOption = "全部状态";
-    private const string AllTimeOption = "全部时间";
-    private const string Last6HoursOption = "近6小时";
-    private const string TodayOption = "今日";
-    private const string Last24HoursOption = "近24小时";
 
-    private readonly IAiInspectionCenterService _service;
-    private readonly IDeviceAlarmService _deviceAlarmService;
+    private readonly IAiInspectionTaskService _taskService;
+    private readonly IInspectionScopeService _inspectionScopeService;
 
-    private AiInspectionTaskListItem? _selectedTask;
-    private AiInspectionTaskDetail? _selectedTaskDetail;
-    private string? _keyword;
-    private string? _deviceCode;
+    private AiInspectionTaskBatch? _selectedTask;
+    private string _taskName = string.Empty;
+    private string _selectedCreateTaskType = AiInspectionTaskType.BasicInspection;
+    private string _selectedCreateScopeMode = AiInspectionTaskScopeMode.FullScheme;
     private string _selectedStatus = AllStatusOption;
-    private string _selectedTimeRange = Last24HoursOption;
-    private string _actionNote = string.Empty;
-    private string _relatedAlarmStatusText = "请选择一条巡检任务查看关联设备告警。";
-    private string _relatedAlarmErrorText = string.Empty;
+    private string _keyword = string.Empty;
+    private string _operatorName = Environment.UserName;
+    private string _currentSchemeName = "--";
+    private string _currentSchemeSummary = "当前未加载巡检范围。";
+    private string _selectedTaskProgressText = "--";
+    private string _selectedTaskFailureSummary = "暂无失败摘要。";
+    private string _selectedTaskLatestSummary = "暂无结果摘要。";
 
-    public AiInspectionCenterPageViewModel(IAiInspectionCenterService service, IDeviceAlarmService deviceAlarmService)
-        : base("AI智能巡检中心", "保留巡检任务筛选、状态流转和执行记录，同时增加关联普通设备告警联动区域。")
+    public AiInspectionCenterPageViewModel(
+        IAiInspectionTaskService taskService,
+        IInspectionScopeService inspectionScopeService)
+        : base("AI智能巡检中心", "围绕批量任务、队列执行、子任务明细与恢复能力，升级为正式任务总控页。")
     {
-        _service = service;
-        _deviceAlarmService = deviceAlarmService;
+        _taskService = taskService;
+        _inspectionScopeService = inspectionScopeService;
+
+        SummaryCards = new ObservableCollection<OverviewMetric>();
+        TaskItems = new ObservableCollection<AiInspectionTaskBatch>();
+        DetailItems = new ObservableCollection<AiInspectionTaskItem>();
+        ExecutionRecords = new ObservableCollection<AiInspectionTaskExecutionRecord>();
 
         StatusOptions =
         [
             AllStatusOption,
             AiInspectionTaskStatus.Pending,
             AiInspectionTaskStatus.Running,
-            AiInspectionTaskStatus.Completed,
-            AiInspectionTaskStatus.Faulted
+            AiInspectionTaskStatus.Succeeded,
+            AiInspectionTaskStatus.Failed,
+            AiInspectionTaskStatus.PartiallyCompleted,
+            AiInspectionTaskStatus.Canceled
         ];
 
-        TimeRangeOptions =
+        TaskTypeOptions =
         [
-            AllTimeOption,
-            Last6HoursOption,
-            TodayOption,
-            Last24HoursOption
+            new SelectionItemViewModel { Key = AiInspectionTaskType.BasicInspection, Title = AiInspectionTaskTextMapper.ToTaskTypeText(AiInspectionTaskType.BasicInspection) },
+            new SelectionItemViewModel { Key = AiInspectionTaskType.PlaybackReview, Title = AiInspectionTaskTextMapper.ToTaskTypeText(AiInspectionTaskType.PlaybackReview) },
+            new SelectionItemViewModel { Key = AiInspectionTaskType.ScreenshotReviewPreparation, Title = AiInspectionTaskTextMapper.ToTaskTypeText(AiInspectionTaskType.ScreenshotReviewPreparation) },
+            new SelectionItemViewModel { Key = AiInspectionTaskType.Recheck, Title = AiInspectionTaskTextMapper.ToTaskTypeText(AiInspectionTaskType.Recheck) }
         ];
 
-        SummaryCards = new ObservableCollection<OverviewMetric>();
-        TaskItems = new ObservableCollection<AiInspectionTaskListItem>();
-        ExecutionRecords = new ObservableCollection<AiInspectionExecutionRecord>();
-        RelatedDeviceAlarms = new ObservableCollection<DeviceAlarmListItem>();
+        ScopeModeOptions =
+        [
+            new SelectionItemViewModel { Key = AiInspectionTaskScopeMode.FullScheme, Title = AiInspectionTaskTextMapper.ToScopeModeText(AiInspectionTaskScopeMode.FullScheme) },
+            new SelectionItemViewModel { Key = AiInspectionTaskScopeMode.AbnormalOnly, Title = AiInspectionTaskTextMapper.ToScopeModeText(AiInspectionTaskScopeMode.AbnormalOnly) },
+            new SelectionItemViewModel { Key = AiInspectionTaskScopeMode.FocusedOnly, Title = AiInspectionTaskTextMapper.ToScopeModeText(AiInspectionTaskScopeMode.FocusedOnly) },
+            new SelectionItemViewModel { Key = AiInspectionTaskScopeMode.PendingRecheckOnly, Title = AiInspectionTaskTextMapper.ToScopeModeText(AiInspectionTaskScopeMode.PendingRecheckOnly) }
+        ];
 
-        SearchCommand = new RelayCommand<object?>(_ => Reload());
-        ClearFilterCommand = new RelayCommand<object?>(_ => ClearFilters());
-        UpdateStatusCommand = new RelayCommand<string>(status => UpdateStatus(status));
-        RetryCommand = new RelayCommand<object?>(_ => RetrySelectedTask());
+        CreateAndRunCommand = new RelayCommand<object?>(_ => CreateAndRunTask());
+        StartSelectedTaskCommand = new RelayCommand<object?>(_ => StartSelectedTask());
+        CancelSelectedTaskCommand = new RelayCommand<object?>(_ => CancelSelectedTask());
+        RefreshCommand = new RelayCommand<object?>(_ => Reload());
+        ClearFilterCommand = new RelayCommand<object?>(_ => ClearFilter());
+
+        _taskService.TasksChanged += OnTasksChanged;
+        _inspectionScopeService.ScopeChanged += OnScopeChanged;
 
         Reload();
     }
 
     public IReadOnlyList<string> StatusOptions { get; }
 
-    public IReadOnlyList<string> TimeRangeOptions { get; }
+    public IReadOnlyList<SelectionItemViewModel> TaskTypeOptions { get; }
+
+    public IReadOnlyList<SelectionItemViewModel> ScopeModeOptions { get; }
 
     public ObservableCollection<OverviewMetric> SummaryCards { get; }
 
-    public ObservableCollection<AiInspectionTaskListItem> TaskItems { get; }
+    public ObservableCollection<AiInspectionTaskBatch> TaskItems { get; }
 
-    public ObservableCollection<AiInspectionExecutionRecord> ExecutionRecords { get; }
+    public ObservableCollection<AiInspectionTaskItem> DetailItems { get; }
 
-    public ObservableCollection<DeviceAlarmListItem> RelatedDeviceAlarms { get; }
+    public ObservableCollection<AiInspectionTaskExecutionRecord> ExecutionRecords { get; }
 
-    public string? Keyword
+    public ICommand CreateAndRunCommand { get; }
+
+    public ICommand StartSelectedTaskCommand { get; }
+
+    public ICommand CancelSelectedTaskCommand { get; }
+
+    public ICommand RefreshCommand { get; }
+
+    public ICommand ClearFilterCommand { get; }
+
+    public string TaskName
     {
-        get => _keyword;
-        set => SetProperty(ref _keyword, value);
+        get => _taskName;
+        set => SetProperty(ref _taskName, value);
     }
 
-    public string? DeviceCode
+    public string SelectedCreateTaskType
     {
-        get => _deviceCode;
-        set => SetProperty(ref _deviceCode, value);
+        get => _selectedCreateTaskType;
+        set => SetProperty(ref _selectedCreateTaskType, value);
+    }
+
+    public string SelectedCreateScopeMode
+    {
+        get => _selectedCreateScopeMode;
+        set => SetProperty(ref _selectedCreateScopeMode, value);
     }
 
     public string SelectedStatus
@@ -92,98 +126,89 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
         set => SetProperty(ref _selectedStatus, value);
     }
 
-    public string SelectedTimeRange
+    public string Keyword
     {
-        get => _selectedTimeRange;
-        set => SetProperty(ref _selectedTimeRange, value);
+        get => _keyword;
+        set => SetProperty(ref _keyword, value);
     }
 
-    public string ActionNote
+    public string OperatorName
     {
-        get => _actionNote;
-        set => SetProperty(ref _actionNote, value);
+        get => _operatorName;
+        set => SetProperty(ref _operatorName, value);
     }
 
-    public string RelatedAlarmStatusText
+    public string CurrentSchemeName
     {
-        get => _relatedAlarmStatusText;
-        private set => SetProperty(ref _relatedAlarmStatusText, value);
+        get => _currentSchemeName;
+        private set => SetProperty(ref _currentSchemeName, value);
     }
 
-    public string RelatedAlarmErrorText
+    public string CurrentSchemeSummary
     {
-        get => _relatedAlarmErrorText;
-        private set => SetProperty(ref _relatedAlarmErrorText, value);
+        get => _currentSchemeSummary;
+        private set => SetProperty(ref _currentSchemeSummary, value);
     }
 
-    public AiInspectionTaskListItem? SelectedTask
+    public AiInspectionTaskBatch? SelectedTask
     {
         get => _selectedTask;
         set
         {
             if (SetProperty(ref _selectedTask, value))
             {
-                _ = LoadSelectedTaskDetailAsync();
-            }
-        }
-    }
-
-    public AiInspectionTaskDetail? SelectedTaskDetail
-    {
-        get => _selectedTaskDetail;
-        private set
-        {
-            if (SetProperty(ref _selectedTaskDetail, value))
-            {
+                RebuildDetail();
                 RaiseSelectionProperties();
             }
         }
     }
 
-    public string SelectedTaskAccentResourceKey => SelectedTask?.AccentResourceKey ?? "TonePrimaryBrush";
-
-    public string SelectedTaskStatusText => SelectedTaskDetail?.Status ?? "未选择任务";
-
-    public string SelectedTaskWindowText
+    public string SelectedTaskProgressText
     {
-        get
-        {
-            if (SelectedTaskDetail is null)
-            {
-                return "请选择左侧任务查看执行窗口。";
-            }
-
-            return $"计划 {SelectedTaskDetail.ScheduledAt:MM-dd HH:mm} / 启动 {FormatTime(SelectedTaskDetail.StartedAt)} / 完成 {FormatTime(SelectedTaskDetail.FinishedAt)}";
-        }
+        get => _selectedTaskProgressText;
+        private set => SetProperty(ref _selectedTaskProgressText, value);
     }
 
-    public string SelectedTaskLatestNoteText => string.IsNullOrWhiteSpace(SelectedTaskDetail?.LatestNote) ? "暂无备注" : SelectedTaskDetail.LatestNote!;
+    public string SelectedTaskFailureSummary
+    {
+        get => _selectedTaskFailureSummary;
+        private set => SetProperty(ref _selectedTaskFailureSummary, value);
+    }
 
-    public string SelectedTaskDescriptionText => SelectedTaskDetail?.Description ?? "暂无任务说明。";
+    public string SelectedTaskLatestSummary
+    {
+        get => _selectedTaskLatestSummary;
+        private set => SetProperty(ref _selectedTaskLatestSummary, value);
+    }
 
-    public string SelectedTaskStrategyText => SelectedTaskDetail?.StrategyName ?? "未绑定策略";
+    public string SelectedTaskStatusText => SelectedTask?.StatusText ?? "未选择任务";
 
-    public ICommand SearchCommand { get; }
+    public string SelectedTaskTypeText => SelectedTask?.TaskTypeText ?? "--";
 
-    public ICommand ClearFilterCommand { get; }
+    public string SelectedTaskScopeText => SelectedTask?.ScopeModeText ?? "--";
 
-    public ICommand UpdateStatusCommand { get; }
+    public string SelectedTaskSchemeText => SelectedTask is null ? "--" : $"{SelectedTask.SchemeName} / {SelectedTask.SchemeId}";
 
-    public ICommand RetryCommand { get; }
+    public string SelectedTaskCreatedText => SelectedTask?.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "--";
+
+    public string SelectedTaskStartedText => SelectedTask?.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "--";
+
+    public string SelectedTaskCompletedText => SelectedTask?.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "--";
+
+    public string SelectedTaskCountsText => SelectedTask is null
+        ? "--"
+        : $"总数 {SelectedTask.TotalCount} / 成功 {SelectedTask.SucceededCount} / 失败 {SelectedTask.FailedCount} / 异常 {SelectedTask.AbnormalCount}";
+
+    public string SelectedTaskAccentResourceKey => SelectedTask?.AccentResourceKey ?? "TonePrimaryBrush";
 
     private void Reload()
     {
-        var (startTime, endTime) = ResolveTimeWindow(SelectedTimeRange);
-        var query = new AiInspectionTaskQuery
-        {
-            Keyword = string.IsNullOrWhiteSpace(Keyword) ? null : Keyword.Trim(),
-            DeviceCode = string.IsNullOrWhiteSpace(DeviceCode) ? null : DeviceCode.Trim(),
-            Status = SelectedStatus == AllStatusOption ? null : SelectedStatus,
-            StartTime = startTime,
-            EndTime = endTime
-        };
+        var overview = _taskService.GetOverview(BuildQuery());
+        var items = _taskService.Query(BuildQuery()).ToList();
+        var selectedTaskId = SelectedTask?.TaskId;
 
-        var items = _service.Query(query).ToList();
+        RebuildScopeInfo();
+        RebuildSummary(overview);
 
         TaskItems.Clear();
         foreach (var item in items)
@@ -191,175 +216,161 @@ public sealed class AiInspectionCenterPageViewModel : PageViewModelBase
             TaskItems.Add(item);
         }
 
-        RebuildSummary(items);
-
-        var selectedTaskId = SelectedTask?.TaskId;
         SelectedTask = items.FirstOrDefault(item => item.TaskId == selectedTaskId) ?? items.FirstOrDefault();
     }
 
-    private void ClearFilters()
+    private void RebuildScopeInfo()
     {
-        Keyword = string.Empty;
-        DeviceCode = string.Empty;
-        SelectedStatus = AllStatusOption;
-        SelectedTimeRange = Last24HoursOption;
-        Reload();
+        var scope = _inspectionScopeService.GetCurrentScope();
+        CurrentSchemeName = $"{scope.CurrentScheme.Name} ({scope.CurrentScheme.Id})";
+        CurrentSchemeSummary =
+            $"覆盖点位 {scope.Summary.CoveredPointCount} / 在线 {scope.Summary.OnlinePointCount} / 异常待复检 {scope.Devices.Count(item => item.NeedRecheck)} / 重点关注 {scope.Summary.FocusPointCount}";
     }
 
-    private async Task LoadSelectedTaskDetailAsync()
+    private void RebuildSummary(AiInspectionTaskOverview overview)
     {
+        SummaryCards.Clear();
+        SummaryCards.Add(BuildMetric("批次总数", overview.TotalTaskCount, "个", "全部历史批次", "TonePrimaryBrush"));
+        SummaryCards.Add(BuildMetric("执行中", overview.RunningTaskCount, "个", "当前队列中", "ToneFocusBrush"));
+        SummaryCards.Add(BuildMetric("已完成", overview.SucceededTaskCount, "个", "成功批次", "ToneSuccessBrush"));
+        SummaryCards.Add(BuildMetric("异常点位", overview.AbnormalItemCount, "个", "批次累计异常", "ToneWarningBrush"));
+    }
+
+    private void RebuildDetail()
+    {
+        DetailItems.Clear();
+        ExecutionRecords.Clear();
+
         if (SelectedTask is null)
         {
-            SelectedTaskDetail = null;
-            ExecutionRecords.Clear();
-            RelatedDeviceAlarms.Clear();
-            RelatedAlarmStatusText = "请选择一条巡检任务查看关联设备告警。";
-            RelatedAlarmErrorText = string.Empty;
-            RaiseSelectionProperties();
+            SelectedTaskProgressText = "--";
+            SelectedTaskFailureSummary = "暂无失败摘要。";
+            SelectedTaskLatestSummary = "暂无结果摘要。";
             return;
         }
 
-        SelectedTaskDetail = _service.GetDetail(SelectedTask.TaskId);
+        var detail = _taskService.GetDetail(SelectedTask.TaskId) ?? SelectedTask;
+        _selectedTask = detail;
 
-        ExecutionRecords.Clear();
-        var executionRecords = SelectedTaskDetail?.ExecutionRecords.OrderByDescending(item => item.Timestamp)
-            ?? Enumerable.Empty<AiInspectionExecutionRecord>();
+        foreach (var item in detail.Items.OrderByDescending(item => item.IsAbnormalResult).ThenBy(item => item.DeviceName, StringComparer.OrdinalIgnoreCase))
+        {
+            DetailItems.Add(item);
+        }
 
-        foreach (var record in executionRecords)
+        foreach (var record in detail.ExecutionRecords.OrderByDescending(item => item.Timestamp).Take(20))
         {
             ExecutionRecords.Add(record);
         }
 
-        await LoadRelatedDeviceAlarmsAsync();
+        SelectedTaskProgressText = $"{detail.ProgressText} / 成功 {detail.SucceededCount} / 失败 {detail.FailedCount} / 取消 {detail.CanceledCount}";
+        SelectedTaskFailureSummary = string.IsNullOrWhiteSpace(detail.FailureSummary) ? "暂无失败摘要。" : detail.FailureSummary;
+        SelectedTaskLatestSummary = string.IsNullOrWhiteSpace(detail.LatestResultSummary) ? "暂无结果摘要。" : detail.LatestResultSummary;
     }
 
-    private async Task LoadRelatedDeviceAlarmsAsync()
+    private void CreateAndRunTask()
     {
-        RelatedDeviceAlarms.Clear();
-        RelatedAlarmErrorText = string.Empty;
-
-        if (SelectedTaskDetail is null)
-        {
-            RelatedAlarmStatusText = "未找到任务详情。";
-            return;
-        }
-
         try
         {
-            var result = await Task.Run(() => _deviceAlarmService.Query(new DeviceAlarmQuery
+            _taskService.CreateTask(new AiInspectionTaskCreateRequest
             {
-                DeviceCode = SelectedTaskDetail.DeviceCode,
-                StartTime = SelectedTaskDetail.ScheduledAt.AddDays(-1),
-                EndTime = DateTimeOffset.Now,
-                PageNo = 1,
-                PageSize = 10
-            }));
+                TaskName = TaskName,
+                TaskType = SelectedCreateTaskType,
+                ScopeMode = SelectedCreateScopeMode,
+                CreatedBy = OperatorName,
+                ExecuteImmediately = true
+            });
 
-            foreach (var item in result.Items)
-            {
-                RelatedDeviceAlarms.Add(item);
-            }
-
-            RelatedAlarmStatusText = RelatedDeviceAlarms.Count == 0
-                ? "当前设备在任务时间窗口内没有普通设备告警。"
-                : $"已加载 {RelatedDeviceAlarms.Count} 条关联设备告警。";
+            TaskName = string.Empty;
+            Reload();
         }
         catch (Exception ex)
         {
-            RelatedAlarmStatusText = "关联设备告警查询失败。";
-            RelatedAlarmErrorText = ex is PlatformServiceException platformException
-                ? $"{platformException.Category} [{platformException.ErrorCode ?? "--"}]: {platformException.Message}"
-                : ex.Message;
+            SelectedTaskLatestSummary = ex.Message;
         }
     }
 
-    private void UpdateStatus(string? status)
-    {
-        if (SelectedTask is null || string.IsNullOrWhiteSpace(status))
-        {
-            return;
-        }
-
-        _service.UpdateStatus(new AiInspectionTaskMutation
-        {
-            TaskId = SelectedTask.TaskId,
-            TargetStatus = status,
-            Note = string.IsNullOrWhiteSpace(ActionNote) ? null : ActionNote.Trim()
-        });
-
-        ActionNote = string.Empty;
-        Reload();
-    }
-
-    private void RetrySelectedTask()
+    private void StartSelectedTask()
     {
         if (SelectedTask is null)
         {
             return;
         }
 
-        _service.RetryTask(
-            SelectedTask.TaskId,
-            string.IsNullOrWhiteSpace(ActionNote) ? "手动重试任务" : ActionNote.Trim());
-
-        ActionNote = string.Empty;
+        _taskService.StartTask(SelectedTask.TaskId, OperatorName);
         Reload();
     }
 
-    private void RebuildSummary(IReadOnlyList<AiInspectionTaskListItem> items)
+    private void CancelSelectedTask()
     {
-        var summaryCards = new[]
+        if (SelectedTask is null)
         {
-            BuildSummary("待执行", items.Count(item => item.Status == AiInspectionTaskStatus.Pending), "TonePrimaryBrush"),
-            BuildSummary("执行中", items.Count(item => item.Status == AiInspectionTaskStatus.Running), "ToneInfoBrush"),
-            BuildSummary("已完成", items.Count(item => item.Status == AiInspectionTaskStatus.Completed), "ToneSuccessBrush"),
-            BuildSummary("异常中", items.Count(item => item.Status == AiInspectionTaskStatus.Faulted), "ToneDangerBrush")
-        };
-
-        SummaryCards.Clear();
-        foreach (var item in summaryCards)
-        {
-            SummaryCards.Add(item);
+            return;
         }
+
+        _taskService.CancelTask(SelectedTask.TaskId, OperatorName, "由任务总控页取消未完成子任务。");
+        Reload();
+    }
+
+    private void ClearFilter()
+    {
+        Keyword = string.Empty;
+        SelectedStatus = AllStatusOption;
+        Reload();
+    }
+
+    private AiInspectionTaskQuery BuildQuery()
+    {
+        return new AiInspectionTaskQuery
+        {
+            Keyword = string.IsNullOrWhiteSpace(Keyword) ? null : Keyword.Trim(),
+            Status = SelectedStatus == AllStatusOption ? null : SelectedStatus
+        };
     }
 
     private void RaiseSelectionProperties()
     {
-        RaisePropertyChanged(nameof(SelectedTaskAccentResourceKey));
         RaisePropertyChanged(nameof(SelectedTaskStatusText));
-        RaisePropertyChanged(nameof(SelectedTaskWindowText));
-        RaisePropertyChanged(nameof(SelectedTaskLatestNoteText));
-        RaisePropertyChanged(nameof(SelectedTaskDescriptionText));
-        RaisePropertyChanged(nameof(SelectedTaskStrategyText));
+        RaisePropertyChanged(nameof(SelectedTaskTypeText));
+        RaisePropertyChanged(nameof(SelectedTaskScopeText));
+        RaisePropertyChanged(nameof(SelectedTaskSchemeText));
+        RaisePropertyChanged(nameof(SelectedTaskCreatedText));
+        RaisePropertyChanged(nameof(SelectedTaskStartedText));
+        RaisePropertyChanged(nameof(SelectedTaskCompletedText));
+        RaisePropertyChanged(nameof(SelectedTaskCountsText));
+        RaisePropertyChanged(nameof(SelectedTaskAccentResourceKey));
     }
 
-    private static OverviewMetric BuildSummary(string label, int value, string accentResourceKey)
+    private void OnTasksChanged(object? sender, EventArgs e)
+    {
+        Dispatch(Reload);
+    }
+
+    private void OnScopeChanged(object? sender, EventArgs e)
+    {
+        Dispatch(RebuildScopeInfo);
+    }
+
+    private static void Dispatch(Action action)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        dispatcher.Invoke(action);
+    }
+
+    private static OverviewMetric BuildMetric(string label, int value, string unit, string deltaText, string accentResourceKey)
     {
         return new OverviewMetric
         {
             Label = label,
             Value = value.ToString(),
-            Unit = "项",
-            DeltaText = "本地状态流转",
+            Unit = unit,
+            DeltaText = deltaText,
             AccentResourceKey = accentResourceKey
         };
-    }
-
-    private static (DateTimeOffset? StartTime, DateTimeOffset? EndTime) ResolveTimeWindow(string selectedOption)
-    {
-        var now = DateTimeOffset.Now;
-
-        return selectedOption switch
-        {
-            Last6HoursOption => (now.AddHours(-6), now),
-            TodayOption => (new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset), now),
-            Last24HoursOption => (now.AddHours(-24), now),
-            _ => (null, null)
-        };
-    }
-
-    private static string FormatTime(DateTimeOffset? value)
-    {
-        return value?.ToString("MM-dd HH:mm") ?? "--";
     }
 }

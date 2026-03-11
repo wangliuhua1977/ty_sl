@@ -13,6 +13,7 @@ namespace TylinkInspection.App;
 public partial class App : Application
 {
     private RecheckSchedulerService? _recheckSchedulerService;
+    private AiInspectionTaskService? _aiInspectionTaskService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -52,7 +53,6 @@ public partial class App : Application
         var platformConnectionService = new PlatformConnectionService(optionsProvider, tokenService, optionsValidator);
 
         var workspaceService = new MockInspectionWorkspaceService();
-        var aiInspectionCenterService = new AiInspectionCenterService(aiTaskStore);
         var aiAlertService = new OpenPlatformAiAlertService(optionsProvider, tokenService, openPlatformClient, aiAlertStore);
         var deviceAlarmService = new OpenPlatformDeviceAlarmService(optionsProvider, tokenService, openPlatformClient, deviceAlarmStore);
         var deviceCatalogService = new DeviceCatalogService(optionsProvider, tokenService, openPlatformClient, deviceCatalogCacheStore);
@@ -78,6 +78,16 @@ public partial class App : Application
             deviceInspectionService,
             playbackReviewService);
         _recheckSchedulerService.Start();
+        _aiInspectionTaskService = new AiInspectionTaskService(
+            aiTaskStore,
+            inspectionScopeService,
+            deviceCatalogService,
+            deviceInspectionService,
+            playbackReviewService,
+            screenshotSamplingService,
+            faultClosureService,
+            _recheckSchedulerService);
+        _aiInspectionTaskService.Start();
         var reviewCenterService = new ReviewCenterService(
             inspectionScopeService,
             aiAlertService,
@@ -86,6 +96,14 @@ public partial class App : Application
             playbackReviewStore,
             manualReviewStore,
             faultClosureService);
+        var reportCenterService = new ReportCenterService(
+            inspectionScopeService,
+            deviceInspectionStore,
+            playbackReviewStore,
+            screenshotSampleStore,
+            manualReviewStore,
+            faultClosureStore,
+            recheckTaskStore);
         var mapInspectionPageViewModel = new MapInspectionPageViewModel(
             workspaceService.GetWorkspaceData(),
             inspectionScopeService,
@@ -114,6 +132,10 @@ public partial class App : Application
             playbackReviewService,
             screenshotSamplingService,
             cloudPlaybackService);
+        var reportCenterPageViewModel = new ReportCenterPageViewModel(
+            workspaceService.GetWorkspaceData().ReportCenterPage,
+            reportCenterService,
+            inspectionScopeService);
         var faultClosureCenterPageViewModel = new FaultClosureCenterPageViewModel(
             workspaceService.GetWorkspaceData().FaultClosureCenterPage,
             faultClosureService,
@@ -134,11 +156,13 @@ public partial class App : Application
         {
             DataContext = new MainShellViewModel(
                 workspaceService,
-                aiInspectionCenterService,
+                _aiInspectionTaskService,
+                inspectionScopeService,
                 aiAlertService,
                 deviceAlarmService,
                 mapInspectionPageViewModel,
                 reviewCenterPageViewModel,
+                reportCenterPageViewModel,
                 faultClosureCenterPageViewModel,
                 pointGovernancePageViewModel,
                 systemSettingsPageViewModel)
@@ -150,6 +174,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _aiInspectionTaskService?.Stop();
         _recheckSchedulerService?.Stop();
         base.OnExit(e);
     }

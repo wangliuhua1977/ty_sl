@@ -4,7 +4,7 @@ namespace TylinkInspection.Core.Contracts;
 
 public interface IAiInspectionTaskStore
 {
-    IReadOnlyList<AiInspectionTaskDetail> LoadAll();
+    IReadOnlyList<AiInspectionTaskBatch> LoadAll();
 
-    void SaveAll(IReadOnlyList<AiInspectionTaskDetail> tasks);
+    void SaveAll(IReadOnlyList<AiInspectionTaskBatch> tasks);
 }
